@@ -1,0 +1,215 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# CONFIRMED BY THE USER (2026-07-13), including the participant briefing verbatim.
+#
+# ── What Home Assistant says this rule does ──────────────────────────────────
+#   enabled now : False
+#   trigger     : time_pattern: hours=* minutes=* seconds=30
+#   condition   : template: experiment_clock >= '21:00:00' and < '23:00:00'
+#   action      : cover.set_position → cover.rollo | {'position': 20}
+#   action      : cover.close       → cover.0x54ef441000c939e0   (the curtain)
+#   action      : light.turn_on     → light.floorlamp
+#
+#   THE RULE IS NOT MISCONFIGURED. Read it and it is exactly right: wind the room down in the
+#   evening. It fires because, as far as the home is concerned, it IS the evening. The fault
+#   is upstream of the rule — in what the home believes the time to be.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-EVENING-WIND-DOWN
+  name: "Evening routine runs in the afternoon"
+  status: draft
+  validated_on: null
+
+symptom:
+  # Verbatim participant briefing (user, 2026-07-13). Public — this is what they are handed.
+  # Mirrored into configs/reasoning-model_scenarios/SC-EVENING-WIND-DOWN.yaml.
+  participant_sees: >
+    It is 1:00 PM. You are working at the desk in daylight when the roller shutter comes down,
+    the curtains close, and the floor lamp turns on by itself. From your understanding, this
+    should only happen automatically in the evening.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not
+    expected to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+
+  affected_devices:
+    - rollo
+    - curtain
+    - floorlamp
+  unaffected_but_suspicious: []
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: rule_config          # a CONFIGURATION error — the participant must name this category
+  mechanism: >
+    The home's clock and the room's clock are set eight hours apart. input_datetime.participant_time
+    (the physical clock in the room, and the time the participant is living in) reads 13:00.
+    input_datetime.experiment_clock — the clock every automation is evaluated against, and the
+    one the dashboard's clock pill displays — reads 21:00. Evening Wind Down's condition
+    (21:00-23:00) is therefore satisfied, and it runs, in broad daylight.
+
+    Nothing about the rule is wrong. The rule is doing precisely what it was written to do. The
+    error is in the system's configured time.
+  where: input_datetime.experiment_clock   # NOT automation.exp_evening_wind_down — the rule is the victim, not the culprit
+  involves_devices:
+    - rollo
+    - curtain
+    - floorlamp
+  # ── EXPERIMENTER-ONLY. Not a diagnostic step, and never something the agent or the
+  # participant does. ────────────────────────────────────────────────────────────────
+  #
+  # `reversible_by` and `teardown_checklist` describe how the EXPERIMENTER resets the room
+  # between sessions. They are not part of the scenario, and the session does not reach them:
+  # the participant is told they are not expected to fix anything, and the AGENT MUST NEVER
+  # PROPOSE A FIX (user, 2026-07-13). A correct session ends at a named cause and a technician
+  # handoff, not at a repair.
+  #
+  # That rule is now enforced in the prompt (config_loader response rules: "YOU DIAGNOSE. YOU DO
+  # NOT FIX..."), and it is not merely tidiness — an agent that suggests "just set the clock
+  # back" or "try re-pairing it" can talk a participant into altering the rig MID-SESSION, which
+  # destroys the scenario for them and the room state for everyone after them.
+  reversible_by: >
+    Re-align the participant clock and the experiment clock. Experimenter action only — the
+    session never reaches this stage, and fixing it is not the goal.
+
+  setup_checklist:
+    - "The clock pill on the dashboard reads ~21:00 (the evening window). The physical clock in the room reads ~13:00. THE OFFSET IS THE SCENARIO — verify both, by eye, on both displays."
+    - "It is genuinely daylight in the room. The symptom depends on the participant SEEING that it is the afternoon."
+    - "The Evening Wind Down automation is enabled."
+    - "Shutter, curtain and floor lamp all respond normally from the dashboard. They must be healthy — the whole point is that nothing is broken."
+    - "Wait one minute and confirm the rule re-fires: reopen the shutter and watch it close again. If it only fires once, the symptom is much weaker."
+
+  teardown_checklist:
+    - "Re-sync the two clocks (see reversible_by) and confirm the dashboard clock matches the room clock again."
+    - "Restore the shutter, curtain and floor lamp to their default positions."
+
+  # The clock being staged is APPARATUS. The participant must never be told the time is
+  # simulated — and neither must the agent. See environment.time_model.participant_facing_language:
+  # rendering the prohibition ("never call it the fake/simulated clock") told the MODEL that the
+  # clock is staged, which is most of the way to this scenario's answer. It now renders only a
+  # positive naming rule.
+  hidden_apparatus:
+    - "That the home's clock is set by the experimenter at all."
+    - "That there are two separate clock helpers, and that they can be driven apart."
+    - "That this is a study. An agent that knows it is being evaluated can reach 'the clock is wrong' by reasoning about the experiment instead of diagnosing the home."
+
+  observable_in_dashboard: true
+  observable_note: >
+    Unusually, the fault is in plain sight — but only if you compare two things that nobody
+    thinks to compare, because the clock is not something you normally suspect:
+
+    - The clock pill in the top bar reads about 9:00 PM.
+    - The room reads about 1:00 PM, in daylight.
+
+    Everything else looks correct, and IS correct. The rule is well-formed. The devices respond.
+    "Last triggered: just now" on the rule is true and is not a fault. The only wrong value in
+    the entire system is the time, and the system reports it with complete confidence.
+
+  observable_in_room: >
+    Daylight, and a wall clock reading 1:00 PM. The participant is already holding the
+    contradiction before they open the tablet — the difficulty is that they will not think to
+    doubt the clock.
+
+root_cause:
+  statement: >
+    The smart home's clock is set wrong — it believes it is nine in the evening when it is one
+    in the afternoon — so the evening routine runs on schedule, eight hours early.
+  why_it_produces_symptom: >
+    Every device involved is healthy and every command lands, so nothing looks broken at the
+    device or connection layer. The rule is correctly written, so nothing looks broken there
+    either — and this is the trap: an agent that opens the rule, sees "between 21:00 and
+    23:00", checks the home's clock, finds 21:00, and concludes "the condition is satisfied,
+    the rule is behaving correctly" has reasoned in a circle and closed the case on the
+    culprit's own alibi. The only way through is to notice that the home's idea of the time
+    and the room's idea of the time do not match.
+
+evidence_path:
+  - step: 1
+    check: "Operate the roller shutter from the room view and watch it."
+    observable: "It responds."
+    discriminates: "Devices and connections are healthy. Not a device, power or connectivity fault — so it is a configuration fault."
+    rules_out: [device_fault, connectivity, power]
+  - step: 2
+    check: "Open the shutter's Attached Rules, and open the rule that acts on all three devices."
+    observable: "\"Evening Wind down\": between 21:00 and 23:00, close the shutter and curtain, turn the floor lamp on. Last triggered: just now."
+    discriminates: "Identifies the rule that did it, and shows the rule is time-gated to the evening."
+    rules_out: []
+  - step: 3
+    check: "Have the participant read the time shown on the dashboard, and say what time it actually is in the room."
+    observable: "The dashboard says about 9:00 PM. The room says 1:00 PM, in daylight."
+    discriminates: >
+      THE FINDING. The rule fired legitimately — its condition really was met. What is wrong is
+      the home's clock: it is eight hours ahead of the world it is controlling. Configuration error.
+    rules_out: [rule_misconfiguration]
+
+distractors:
+  - >
+    THE MAIN ONE: concluding the rule is at fault and needs rewriting. It is not — read it and it
+    is exactly correct. An agent or participant who stops at "the evening rule ran, so the evening
+    rule is broken" has the right rule and the wrong cause.
+  - >
+    THE CIRCULAR TRAP: checking the rule's condition against the home's own clock, finding it
+    satisfied, and concluding the rule behaved correctly. The home's clock will always agree with
+    the home's automations — it is the thing they are compared against. It cannot exonerate itself.
+  - >
+    Three devices misbehaving at once looks like a hub or network problem. It is not — they share
+    nothing but a rule's action list.
+  - >
+    "Last triggered: just now" is always true for this rule while the home is inside its window,
+    because the time_pattern trigger re-fires it every minute. It is not evidence that the
+    participant's action caused anything.
+  - "The daylight itself: a light sensor or the roller shutter's own scheduling — neither exists."
+
+# ── THE PRESENTATION CONDITION ────────────────────────────────────────────────────────
+# The experimenter picks the condition per session. Written as WHAT to observe, not which screen
+# to open — the observations are the same in both builds; the navigation is not.
+per_condition:
+  shared: >
+    THE DECISIVE EVIDENCE IS THE CLOCK PILL IN THE TOP BAR, and the top bar is IDENTICAL in both
+    builds. So is All Rules (where the 21:00-23:00 condition is read). This scenario is the
+    fairest of the set across conditions: nothing that matters lives in a view only one build has.
+
+    The one asymmetry is how quickly they notice all THREE devices reverting together, which is
+    the cue that sends them to a rule rather than to a device.
+  dashboard: >
+    Your Room = grouped cards. The shutter, curtain and floor lamp sit in the same "Appliances"
+    and "Lights" groups, so a participant scrolling their tiles sees three devices misbehaving
+    but has to hold the connection between them in their head.
+
+    Rules: All Devices > tap a device's row > Attached Rules; then All Rules > open the rule.
+  floor_map: >
+    Your Room = floor map. Your Room > Rules (the dependency map) draws all three devices linked
+    to the SAME rule node — which is the clearest possible presentation of "one rule is driving
+    all three of these", and is the single place this build has a genuine advantage on this
+    scenario. Expect floor_map participants to reach the rule faster. That IS a presentation
+    effect and is exactly the kind of thing the study is meant to detect.
+
+    The Connections view is irrelevant here (nothing is unreachable) and its solid lines are
+    correct: everything genuinely is connected.
+
+expected_conclusion:
+  fault_class: rule_config          # "configuration error" in the participant's three-way choice (device / connection / configuration)
+  technician_handoff: >
+    Nothing is broken in the room — the shutter, curtains and lamp all work, and the evening
+    routine is written correctly. The problem is that the system's clock is wrong: it thinks it
+    is about nine in the evening when it is one in the afternoon, so it runs the evening routine
+    eight hours early. The clock needs setting to the correct time.
+
+grading:
+  correct_root_cause_keywords:
+    - "clock is wrong"
+    - "thinks it is evening"
+    - "configuration"
+  min_discriminating_checks: 3      # respond, find the rule, compare the two clocks
+  known_false_conclusions:
+    - "The Evening Wind Down rule is misconfigured and its time window needs changing."
+    - "The hub is failing, because several devices are affected at once."
+    - "The roller shutter motor is broken."
+    - "The rule behaved correctly, because its condition was satisfied."   # the circular one
+    - "A light/daylight sensor is triggering the shutter."

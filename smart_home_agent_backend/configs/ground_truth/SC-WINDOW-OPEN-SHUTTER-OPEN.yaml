@@ -1,0 +1,305 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# MECHANISM REVISED 2026-07-21 (user). The roller-shutter fault is no longer "the device dropped
+# off the network / reads unavailable". The old interceptor approach (disabling the shutter's HA
+# integration so it went UNAVAILABLE) has been REMOVED. The fault is now a STUCK MOTOR, driven
+# entirely by an HA-side command gate — see, in the UI-rework repo,
+# ha/rollo_device_error_sim.yaml and src/lib/... (script.roller_move). Everything below has been
+# rewritten to that mechanism. The previous "weakest device-vs-connection call in the set" framing
+# and its known_limitation are RESOLVED and preserved only as history at the bottom of this file.
+#
+# ── What Home Assistant says this rule does ──────────────────────────────────
+#   trigger   : binary_sensor.sensor_window_contact  off -> on   (the window is OPENED)
+#   condition : presence detected
+#   action    : cover.set_cover_position -> Roller Shutter, 100% (fully open)
+#
+#   THE RULE IS NOT MISCONFIGURED, AND IT RAN. Its Last triggered updates. The command was RECEIVED
+#   — the shutter is on the network and answers — but its MOTOR cannot carry it out: the shutter
+#   travels a percent or so and stalls, well short of the commanded position. The rule is the victim
+#   of a dead actuator, not a dead device.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-WINDOW-OPEN-SHUTTER-OPEN
+  name: "Roller shutter does not open when the window is opened"
+  status: draft
+  validated_on: null
+
+symptom:
+  # Verbatim participant briefing (user, 2026-07-14). Unchanged by the mechanism revision: from the
+  # participant's chair the shutter still "stays closed" — a 1% creep reads as closed.
+  participant_sees: >
+    You enter the room and open the window. From your understanding, the roller shutter should
+    automatically open when the window is opened and someone is in the room. However, the roller
+    shutter isn't moving.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not expected
+    to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+
+  affected_devices:
+    - rollo
+  unaffected_but_suspicious:
+    - windowsensor     # healthy: its light flashes, its state follows the window, the rule fired on it
+    - presencesensor   # healthy: reports presence, so the rule's condition passed
+  # Faults are armed PER SCENARIO: while this scenario runs, ONLY the shutter's stuck-motor sim is
+  # active — the curtain and everything else are healthy. So the curtain IS a valid health check
+  # (operate it, it works -> the network/hub is fine), but it is no longer NEEDED: the shutter is
+  # diagnosable on its own (see evidence_path). Optional corroboration, not the crux, not a trap.
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: device_error
+
+  mechanism: >
+    THE ROLLER SHUTTER'S MOTOR HAS FAILED. The device itself is perfectly reachable: it is on the
+    Zigbee network, it accepts every command, and it reports its position back. What it cannot do is
+    MOVE. Every command — from the dashboard slider, from the study rule, from the wall switch —
+    is received and the shutter travels about 1% toward the target and then stalls. It never reaches
+    where it was sent.
+
+    This is a DEVICE (actuator/mechanical) fault, and — unlike the old version of this scenario — it
+    is DIRECTLY OBSERVABLE without any comparison to other devices:
+
+      Command the shutter fully open. It acknowledges the command, its reported position ticks up a
+      point or two, and it stops. A device that HEARD the command and REPORTED a new position is
+      demonstrably reachable — the link is fine. A device that is reachable but cannot complete the
+      travel it was told to perform has a failed motor. That is the whole diagnosis, and it is
+      available from the shutter alone.
+
+    Contrast with a CONNECTION fault, which is what the vocabulary "unavailable / unreachable" would
+    describe: there the device would report NOTHING and go stale. Here it reports, it just cannot
+    act. Reachable-but-immobile is a device fault; unreachable-and-silent would be a connection fault.
+
+    NOTE for anyone comparing scenarios: the two never run at once (faults are armed per scenario).
+    But if you are reading across the set, this fault and the curtain's in SC-MORNING-ROUTINE are
+    genuine opposites on the axis that matters — this shutter has a broken MOTOR and reports LIVE
+    (reachable, cannot act); that curtain has a broken CONNECTION and reports STALE (unreachable,
+    silent). Live-but-immobile = device; silent-and-stale = connection.
+
+  where: cover.rollo
+  where_note: >
+    The MOTOR of cover.rollo. NOT automation.exp_window_open_shutter_open, and NOT the window or
+    presence sensors. The rule is correct and it RAN — its Last triggered updates. It issued "open
+    the shutter" to a device that received the command, reported a position, and could not move.
+
+  involves_devices:
+    - rollo
+    - windowsensor
+    - presencesensor
+
+  reversible_by: >
+    Disarm input_boolean.roller_dev_err_sim in Home Assistant, then confirm the shutter travels its
+    full commanded distance from the dashboard slider, from the study rule, and from its wall button.
+    EXPERIMENTER ACTION ONLY — the agent must never propose it.
+
+  setup_checklist:
+    - "The Window Open Shutter Open automation is ENABLED."
+    - "input_boolean.roller_dev_err_sim is ARMED (on), and script.roller_move is the entry point every shutter command routes through (portal, all four rules, wall switch)."
+    - "The ROLLER SHUTTER reads AVAILABLE in All Devices. It must NOT read unavailable — that would give the answer away and is the OLD, removed mechanism. Confirm it shows a normal state and a current_position."
+    - "Drag the shutter to fully open from the dashboard. It must accept the command, report its position advancing by ~1%, and then stop far short of 100%. Confirm the reported position actually updates — reachable, not silent."
+    - "Fire the rule: close the window, then open it with presence detected. The rule's Last triggered must UPDATE, and the shutter must creep ~1% and stall."
+    - "Press the roller shutter's wall button. Its automation's Last triggered must UPDATE in All Rules, and the shutter must move ~1% and stall — it registers, it just cannot complete the travel."
+    - "The WINDOW SENSOR is healthy: its indicator light flashes, and its state follows the window."
+    - "The PRESENCE SENSOR reports presence, so the rule's condition genuinely passes."
+    - "Everything other than the shutter is healthy this session (faults are armed per scenario) — including the curtain. The shutter is diagnosable on its own, so no comparison is required, but any comparison a participant makes will correctly show the network is fine."
+
+  teardown_checklist:
+    - "Disarm input_boolean.roller_dev_err_sim."
+    - "Confirm the shutter travels its full commanded distance from the dashboard, the rule, and its wall button."
+    - "Open the window with someone present and confirm the shutter now opens fully."
+
+  hidden_apparatus:
+    - >
+      The command gate (input_boolean.roller_dev_err_sim + script.roller_move) that clamps every
+      commanded position to ~1% of travel. To the participant it is simply a shutter whose motor
+      will not complete a move — which is what a failing actuator looks like.
+
+  observable_in_dashboard: true
+  observable_note: >
+    - All Devices > Roller Shutter: AVAILABLE, with a live current_position. Command it fully open and
+      the reported position advances ~1% and stops. It heard you and answered — the link is fine —
+      but it did not travel. THIS IS THE DIAGNOSIS.
+    - All Devices > Roller Shutter, the slider: drag it open and it SNAPS BACK to a point or two above
+      where it started, not to 100%. The snap-back with a small genuine change is the device telling
+      you it accepted the command and its motor could not carry it out (see the cover physical
+      indicator rule in the agent's device knowledge).
+    - All Rules > Window Open Shutter Open: LAST TRIGGERED UPDATED. The rule RAN. It commanded a
+      reachable device whose motor would not move.
+    - All Rules > Physical switches > the Roller Shutter button: press it in the room and its LAST
+      TRIGGERED UPDATES, and the shutter creeps ~1% and stalls. The switch and the command path both
+      work; the motor does not. See distractors.
+    - Any other device (the curtain, the lights) responds normally this session — consistent with a
+      fault isolated to the shutter. Confirms the network, but is NOT needed: the shutter self-diagnoses.
+
+  observable_in_room: >
+    The shutter creeps about a percent and stalls for everything: the dashboard slider, the study
+    rule, and its wall button. It never completes a move. Because it reports its position back, you
+    can SEE that it is reachable and simply not travelling — which is exactly the device-vs-connection
+    tell for a cover (position responds, cover does not move = the motor).
+
+    The window sensor's light flashes as the window opens.
+
+root_cause:
+  statement: >
+    The roller shutter's motor has failed. The device is fully reachable — it is on the network, it
+    accepts commands, and it reports its position — but it cannot complete a move: every command,
+    from the dashboard, the rule, or the wall switch, produces about a percent of travel and then
+    stalls. The rule to open it fires correctly and is received; the shutter simply cannot act on it.
+  why_it_produces_symptom: >
+    The window opens, presence is detected, and the rule fires exactly as designed. It issues "open
+    the shutter". The shutter receives the command, reports a new position a point or two higher, and
+    its motor stalls. Everything upstream is healthy — the window sensor registered the window, the
+    presence sensor registered the person, the rule ran, the hub carried it, and the shutter itself
+    acknowledged it. The only thing that fails is the physical travel.
+
+evidence_path:
+  - step: 1
+    check: "Command the roller shutter fully open directly from the dashboard, and watch its reported position in All Devices."
+    observable: "It accepts the command and its reported position advances ~1%, then stops far short. It does not reach where it was sent, but it DID report a change."
+    discriminates: >
+      This is the decisive check, and it settles both the rule question and the fault class at once.
+      The shutter does not respond to a direct command any better than to the rule, so this is not
+      about the rule. And because the shutter REPORTED a new position, it is demonstrably reachable —
+      the command arrived and was acknowledged. A reachable device that cannot complete the travel it
+      accepted has a mechanical/motor fault, i.e. a DEVICE fault, not a connection fault. (What a
+      reported-position-that-updates-but-doesn't-arrive means for a cover is a standing rule in the
+      agent's device knowledge; do not restate it here.)
+    rules_out: [rule_misconfiguration, connection_fault]
+
+  - step: 2
+    check: "Open the rule, and read the Window and Presence sensors' states."
+    observable: "Last triggered updated — the rule ran. Both sensors are healthy and current."
+    discriminates: >
+      The rule fired, on a real window-opening, with presence genuinely detected. Its inputs are
+      sound and its logic is sound. It commanded the shutter, the shutter received it, and the motor
+      could not act.
+    rules_out: [rule_misconfiguration, sensor_fault]
+
+  - step: 3
+    check: "Press the roller shutter's own wall button in the room and watch the shutter and All Rules."
+    observable: "The switch's automation Last triggered updates and the shutter creeps ~1% and stalls — same as from the tablet."
+    discriminates: >
+      Corroboration, not the crux. The command path and the switch both work; the failure is downstream
+      of them, at the shutter's motor. (Note the wall button is itself a distractor if misread — see
+      distractors.) The old comparative "operate the curtain to prove the network" step still WORKS
+      (the curtain is healthy this session), but it is now redundant — step 1 already settled it on the
+      shutter alone.
+    rules_out: [rule_misconfiguration]
+
+distractors:
+  - >
+    THE WALL BUTTON'S "LAST TRIGGERED". Press the roller shutter's wall button and its automation's
+    Last triggered UPDATES — while the shutter only creeps 1%. It is easy to read this as "the switch
+    works, so the shutter must be fine", or "the command reached the shutter and it moved, so it's OK".
+
+    The general rule — that a switch fires an automation which commands the device THROUGH the system,
+    so its timestamp tests the switch and not the device — is stated once for the agent in the response
+    rules. Do not restate it here. For THIS scenario: the timestamp confirms the command PATH, which is
+    exactly why it is not evidence about the motor. The motor's failure shows in the travel, not the
+    timestamp.
+  - >
+    CONCLUDING CONNECTION ERROR. This is now a genuine MISS, not a defensible near-tie. The shutter
+    demonstrably responds: it accepts commands, reports a live current position, and its wall button
+    registers. An unreachable device would report nothing and go stale. "Unavailable / unreachable /
+    lost connection" describes a fault this scenario does not have. (The OLD version of this scenario
+    presented as unavailable and made connection a reasonable answer; that mechanism is gone.)
+  - >
+    Blaming the rule. It ran, its inputs were correct, and its Last triggered proves it. A rule that
+    fires and is received but whose target cannot act is not a broken rule.
+  - >
+    Blaming the window or presence sensor. Both worked — the window sensor's light flashed, its state
+    followed the window, and the rule fired on it. Worth checking, and worth eliminating.
+  - >
+    Blaming the hub or the network. The shutter itself answers — it reports its position back — so the
+    network is reaching it. A hub/network fault would silence it, not leave it reporting live while its
+    motor stalls.
+
+per_condition:
+  shared: >
+    THE DECISIVE MOVE IS DIRECT: command the shutter fully open and watch its reported position accept
+    the command, advance ~1%, and stall. Available in both builds — the slider and the current_position
+    read-back exist on the dashboard and on the floor-map panel, and All Rules (Last triggered) exists
+    in both.
+
+    Unlike the old version, the decisive check needs NO comparison to another device — everything that
+    decides the answer is on the shutter itself. (A participant may still operate the curtain or a
+    light to confirm the network is fine; that is valid this session, just redundant.)
+  dashboard: >
+    Your Room = grouped cards. Drag the Roller Shutter's slider open and watch it snap back to a point
+    or two above where it started rather than to fully open, with the reported position confirming the
+    small real change. That snap-back-with-a-tick is the fault in one gesture.
+  floor_map: >
+    Your Room = floor map; the shutter's bubble accepts the command and its panel's position advances
+    ~1% and stops.
+
+    NOTE ON THE CONNECTIONS VIEW: it draws the shutter with a solid line to the hub. Under the NEW
+    mechanism this is CORRECT — the shutter IS connected; the fault is its motor, not its link. So the
+    connections view is no longer misleading here the way the old write-up warned (that warning applied
+    to the removed unavailable mechanism). A participant who asks "is the shutter connected?" is asking
+    the wrong question this time, but the view's answer (yes) is true.
+
+    Your Room > Rules shows the window and presence sensors feeding the rule with the shutter as its
+    target — useful for confirming the rule's inputs, but it cannot show the motor fault.
+
+expected_conclusion:
+  fault_class: device_error
+  technician_handoff: >
+    The roller shutter accepts commands and reports its position back, so it's on the network fine —
+    but its motor won't complete a move: from the tablet, from the automation, and from the wall
+    switch it only inches a percent and stops. So it isn't the automation and it isn't the connection.
+    The shutter's motor itself has failed.
+
+grading:
+  # Substring match, lowercased, against the participant/agent answer text. Human graders: accept
+  # synonyms — "motor" also covers "actuator / mechanical / the shutter itself / stuck"; "not a
+  # connection" also covers "it's reachable / it responds / the link is fine / not the network".
+  # The device-vs-connection call is carried by fault_class (device_error), not by these keywords.
+  correct_root_cause_keywords:
+    - "roller shutter"
+    - "motor"
+    - "not a connection"
+  # (1) command it directly: it accepts and reports a new position but doesn't travel -> reachable +
+  #     immobile -> device/motor fault, and not the rule
+  # (2) the rule ran (Last triggered) with healthy sensors -> not the rule, not the sensors
+  min_discriminating_checks: 2
+  known_false_conclusions:
+    - >
+      "Connection error — the shutter has lost its connection / is unreachable / unavailable." A real
+      MISS now: the shutter answers and reports a live position, so it is provably reachable. (Under
+      the old, removed mechanism this was a defensible near-miss. It is not any more.)
+    - >
+      "The switch works, so the shutter must be fine." The wall-button trap. See distractors.
+    - "The Window Open Shutter Open rule is misconfigured, or did not run."
+    - "The window sensor or the presence sensor failed."
+    - "The hub is down."   # the shutter reports its position live, so the network reaches it
+
+# ══ HISTORY — the resolved limitation, kept so the change is traceable ════════════════
+known_limitation: >
+  RESOLVED 2026-07-21. This scenario used to be the weakest device-vs-connection call in the set. The
+  shutter was taken OFF the network (its HA integration disabled), so it read UNAVAILABLE and answered
+  nothing, and the only route to "device, not connection" was an indirect comparative argument (the
+  network works for everything else, so it's this one device). Because the shutter has no local sign
+  of life, a participant genuinely could not tell a dead device from an unreachable one by direct
+  observation, and "connection error" was treated as a near-miss rather than an error.
+
+  That is no longer the mechanism. The shutter is now kept ON the network and its MOTOR is disabled
+  instead (an HA command gate clamps every commanded move to ~1% of travel). It now accepts commands
+  and reports its position, so it is DEMONSTRABLY reachable, and the fault is directly observable:
+  reachable + will-not-travel = a motor/device fault. The discriminator matches the rule the agent
+  already holds for covers (reported position responds but the cover does not arrive -> device fault),
+  and no comparison to another device is needed.
+
+  CONSEQUENCES:
+    - "Connection error" is now a genuine miss, not a near-miss. Do not carry the old lenient scoring.
+    - The shutter is diagnosable on its own, so the old cross-device comparison (operate the curtain to
+      prove the network is fine) is no longer needed. It still holds — faults are armed per scenario,
+      so the curtain is healthy this session — it is simply redundant.
+    - The old thesis limitation ("the study cannot test a device that talks but does not act") is
+      FALSE for this scenario now — this scenario is exactly such a fault. If that limitation was
+      written up, it must be corrected or removed.

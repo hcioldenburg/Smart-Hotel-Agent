@@ -1,0 +1,161 @@
+metadata:
+  portal_config_id: smart_home_ui_rework_portal_structure
+  version: 3.0
+  source_component: Smart_Home_UI_Rework
+  source_files:
+  # The LIVE portal. The old experiment-ui/ContextualUI tree is SUPERSEDED - this
+  # file used to describe it, and every screen name below has changed since.
+  - Smart_Home_UI_Rework/src/App.tsx
+  - Smart_Home_UI_Rework/src/components/TopBar.tsx
+  - Smart_Home_UI_Rework/src/components/SidebarRail.tsx
+  - Smart_Home_UI_Rework/src/components/FilterPills.tsx
+  - Smart_Home_UI_Rework/src/pages/AllDevices.tsx
+  - Smart_Home_UI_Rework/src/pages/AllRules.tsx
+  - Smart_Home_UI_Rework/src/pages/YourRoom.tsx
+  - Smart_Home_UI_Rework/src/pages/FloorMapView.tsx
+  - Smart_Home_UI_Rework/src/pages/DependenciesView.tsx
+  - Smart_Home_UI_Rework/src/pages/ConnectionsView.tsx
+  - Smart_Home_UI_Rework/src/components/DeviceDetailPanel.tsx
+  - Smart_Home_UI_Rework/src/components/RuleDetailPanel.tsx
+  purpose: >
+    Describe the participant-facing portal so the agent can guide users to the
+    correct screen and ask for exact technical evidence. Only what the participant
+    can ACTUALLY see is listed here - never invent an affordance.
+
+portal:
+  name: Smart Hotel
+  ui_variant: Smart_Home_UI_Rework
+  participant_device: Dashboard   # always call it "the dashboard" when speaking to the user
+  description: >
+    A smart-home dashboard with a three-item left nav rail. Two visual builds
+    (presentation conditions) differ ONLY in the Your Room page; All Devices and
+    All Rules are identical in both. See portal_conditions.yaml for the per-condition
+    navigation the agent must stay loyal to.
+
+global_elements:
+  clock:
+    component: TopBar (clock pill)
+    shows: >
+      The smart home's own clock (the system time the participant sees). All
+      time-based automations are evaluated against this same time.
+    diagnostic_use: >
+      Use this as THE current time for any time-dependent automation - never
+      real/wall-clock time. The displayed system time can differ from actual
+      real-world time, so always have it read here rather than assuming.
+  record_activity:
+    component: RecordActivity
+    diagnostic_use: Experiment activity recording; NOT a participant diagnostic control.
+  not_available:
+  # Affordances the OLD portal had that this one does NOT. Never send a user to these.
+  - No "Tips" / help carousel.
+  - No "Network" tab (the old Your Room > Network > Connections/Dependencies is gone;
+    the floor_map condition has Your Room sub-tabs named Connections and Rules instead).
+  - No "Rules Attached" count column in All Devices (see all_devices below).
+  - No category/overlay toggle buttons ("Reset All", "Display Connections",
+    "Display Dependencies") - filtering is done with the filter pills.
+
+navigation:
+  nav_rail:            # SidebarRail - identical in both conditions
+  - id: your_room
+    label: Your Room
+    purpose: The room view. Its content depends on the presentation condition.
+  - id: all_devices
+    label: All Devices
+    purpose: Table of every device with its current state.
+  - id: all_rules
+    label: All Rules
+    purpose: Table of every rule, split into Automations and Physical switches.
+
+  filter_pills:        # FilterPills - on Your Room and All Devices, both conditions
+    options: [All, Lights, Appliances, Media, Sensors]
+    effect: Narrows the visible devices to the selected categories.
+
+all_devices:
+  component: AllDevices.tsx
+  visible_columns:
+  - id: device
+    label: Device
+    meaning: Device name and icon.
+  - id: category
+    label: Category
+    meaning: Lights / Appliances / Media / Sensors.
+  - id: state
+    label: State
+    meaning: >
+      Current state - "On"/"Off", a sensor reading (e.g. "Present", "Open"),
+      or "{n}% Open" for the curtain and roller shutter.
+  - id: last_changed
+    label: Last changed
+    meaning: How long ago the device's state last changed (e.g. "12m ago").
+  row_detail:
+    note: >
+      Tapping a row opens the device's detail card. THIS is where a device's
+      attached rules are listed - there is NO "Rules Attached" count column in the
+      table. To learn which rules touch a device, have the participant open the
+      device's row and read its "Attached Rules" list.
+    shows:
+    - The device's control (toggle / brightness dial / position slider).
+    - Attached Rules - the automations that reference this device, each tappable.
+  excluded:
+  - The physical wall switches / buttons. They are automations, not devices - they
+    live in All Rules > Physical switches. Never send a user here to find a switch.
+  agent_use: >
+    Use when you need an exact reported value (state, cover position %, temperature,
+    or an unavailable/offline indicator), or the list of rules attached to a device.
+
+all_rules:
+  component: AllRules.tsx
+  sections:
+  - id: automations
+    header: Automations
+    meaning: The 9 study rules the system runs on its own.
+  - id: physical_switches
+    header: Physical switches
+    meaning: >
+      The 6 wall switches / buttons in the room. Each press fires its own rule.
+      Visible in BOTH conditions - and in the dashboard condition this is the ONLY
+      place a switch appears at all.
+  visible_columns:
+  - id: rule_name
+    label: Rule name
+  - id: status
+    label: Status
+    meaning: Enabled or Disabled.
+  - id: last_triggered
+    label: Last triggered
+    meaning: >
+      When the rule last actually fired (e.g. "3m ago", "2d ago") or "Never".
+      For a physical switch this is its last physical press - the one reliable way
+      to confirm the system registered that the participant pressed it.
+  rule_detail:
+    note: Tapping a rule opens a read-only card. See portal_rules.yaml > rules_tab.observability
+      for what this card can and cannot tell you.
+    shows: [Triggers, Conditions, Actions, Summary]
+
+your_room:
+  note: >
+    Content is condition-dependent. portal_conditions.yaml is authoritative for the
+    exact breadcrumbs to give a participant; this is only the structural summary.
+  dashboard_condition:
+    shows: >
+      Devices as grouped cards - Lights, Appliances, TV & Media, Sensors - each a
+      tile with its control inline. No floor map, no detail side panel, no graphs.
+  floor_map_condition:
+    sub_rail: [Devices, Rules, Connections]
+    devices: >
+      The floor map - a device icon at each device's real position. Tapping one opens
+      its detail panel on the right. The physical switches appear here as their own
+      small icons; a switch icon never lights up and reports only when it was last
+      pressed.
+    rules: >
+      The dependency graph - devices linked to the rule nodes that connect them. The
+      physical switches appear as their own switch icon (NOT a rule/gear node), wired
+      by an edge to the device each one controls.
+    connections: Solid lines from each device to the central Hub.
+
+device_categories:
+  # The only four categories that exist (FilterPills + DeviceDef.category).
+  Lights: [Door Light, Window Light, Bedlight L, Bedlight R, Floor Lamp]
+  Appliances: [Curtain, Roller Shutter, SmartFan, Fan Socket, Heater]
+  Media: [TV]   # the TV Socket was removed from the study 2026-07-13
+  Sensors: [Presence Sensor, Door Sensor, Window Sensor, Temperature Sensor]

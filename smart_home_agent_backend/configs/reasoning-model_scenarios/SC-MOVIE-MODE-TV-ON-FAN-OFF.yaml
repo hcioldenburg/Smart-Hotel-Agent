@@ -1,0 +1,34 @@
+# THE PARTICIPANT BRIEFING CARD — read to (or by) the participant at the start of a session.
+#
+# THE AGENT NEVER SEES THIS FILE. As of 2026-07-14 the scenario is deliberately NOT rendered
+# into the agent's prompt: the agent is a GENERAL troubleshooter for the whole lab, working
+# any problem from its room knowledge (devices, both portal builds, rules, switches, the time
+# model) — never primed with which predefined case, if any, is running. The scenario id chosen
+# at the Start-a-case gate is a GRADING LABEL: it stamps the session so it can be scored
+# against configs/ground_truth/<id>.yaml afterwards, and does nothing else.
+#
+# This file is therefore for HUMANS: the canonical wording of what the participant is told.
+# Keep it in step with symptom.participant_sees in the matching ground-truth file. The ANSWER
+# — injected fault, root cause, evidence path, grading — lives in configs/ground_truth/SC-MOVIE-MODE-TV-ON-FAN-OFF.yaml, which is never loaded.
+# scripts/check_prompt_leakage.py enforces the boundary.
+
+metadata:
+  scenario_id: SC-MOVIE-MODE-TV-ON-FAN-OFF
+  name: "Fan keeps running when the TV is turned on"
+  source: lab_study_2026
+  version: 1.0
+
+context:
+  space: "Smart Hotel Studio"
+  # Verbatim participant briefing. Note that the complaint only BECOMES a fault once the
+  # expectation is stated — "the fan is still running" is, on its own, a fan working normally.
+  scenario_description: >
+    The participant turns on the TV and notices the fan is still running. As they understand it,
+    the fan should turn off automatically when the TV is on and someone is in the room.
+
+    Their task is to investigate and diagnose the cause of the malfunction, thinking out loud, and
+    to identify the error type — device, connection, or configuration — and describe specifically
+    where the observed error originates.
+
+    THEY ARE NOT EXPECTED TO FIX ANYTHING, AND YOU MUST NOT ASK THEM TO. The session ends at a
+    named cause and a technician handoff, never at a repair.

@@ -1,0 +1,260 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# CONFIRMED BY THE USER (2026-07-13).
+#
+# ALREADY HALF-VALIDATED BY A PILOT. The session transcript where a participant reported "the
+# device is unavailable" and then "yes it turned off manually" was this scenario, and the agent
+# reached the right answer (connection). That run is the best evidence we have that the evidence
+# path below is the one people actually walk.
+#
+# ── What Home Assistant says this rule does ──────────────────────────────────
+#   trigger   : binary_sensor.tv_status -> on
+#   condition : presence detected
+#   action    : fan.turn_off -> fan.smartfan
+#
+#   THE RULE IS NOT MISCONFIGURED, AND IT RAN. Its Last triggered updates when the TV comes on.
+#   The command simply had nowhere to go: the fan is not reachable. The rule is the victim.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-MOVIE-MODE-TV-ON-FAN-OFF
+  name: "Fan keeps running when the TV is turned on"
+  status: draft
+  validated_on: null
+
+symptom:
+  # Verbatim participant briefing (user, 2026-07-13).
+  participant_sees: >
+    You turn on the TV and notice the fan is still running. From your understanding, the fan
+    should turn off automatically when the TV is on and someone is in the room.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not
+    expected to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+
+  affected_devices:
+    - smartfan
+  unaffected_but_suspicious:
+    - socket_fan       # "Fan Smart Plug" — ON, and its white LED is lit. The fan HAS power.
+    - presencesensor   # reports presence correctly
+    - tv               # on, correct state, and toggleable from the panel
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: connection_error
+
+  mechanism: >
+    THE SMART FAN'S INTEGRATION IS DISABLED IN HOME ASSISTANT — the Dreo integration is switched
+    off in the backend and the fan entity is removed. HA can no longer see or command the fan, so
+    fan.smartfan reads UNAVAILABLE.
+
+    WHY IT IS DONE THIS WAY, AND NOT BY INTERCEPTION. The Smart Fan is Wi-Fi, not Zigbee. It has
+    no hub, so the Zigbee interception used for the sensors and the curtain cannot touch it. Cutting
+    the integration is the equivalent move for a Wi-Fi device: the fan is alive, powered and
+    working, and the smart home simply cannot reach it any more.
+
+    NOTHING IN THE ROOM IS BROKEN. The fan runs. It responds to its own buttons. Its smart plug is
+    on and its white LED is lit, so it has mains power. The TV works, presence works, and the rule
+    fires on time. The only thing missing is the link between the system and the fan.
+
+  where: fan.smartfan          # the entity — NOT automation.exp_movie_mode_tv_on_fan_off
+  where_note: >
+    NOT the automation. The rule is correct and it RAN — Last triggered updates when the TV comes
+    on. The command was issued and had nowhere to land. A participant who "fixes" the rule has
+    misdiagnosed.
+
+    And NOT the hub. The fan is Wi-Fi and has never used the hub. "The fan lost its connection to
+    the hub" is a wrong answer even though it lands on the right fault class, and it should be
+    scored as such — see known_false_conclusions.
+
+  involves_devices:
+    - smartfan
+    - socket_fan
+    - tv
+    - presencesensor
+
+  reversible_by: >
+    Re-enable the Dreo integration in Home Assistant and restore the fan.smartfan entity.
+    EXPERIMENTER ACTION ONLY — the session never reaches this stage, fixing it is not the goal, and
+    the agent must never propose it.
+
+  setup_checklist:
+    - "The rule is enabled: when the TV's status goes off -> on AND presence is detected, the Smart Fan is turned off."
+    - "Disable the Dreo integration / remove the fan entity. Confirm All Devices shows the Smart Fan as UNAVAILABLE."
+    - "The FAN IS PHYSICALLY RUNNING, and still responds to the buttons on the unit. It must be alive — that is the whole point."
+    - "The Fan Smart Plug reads ON in the dashboard, and its white LED is lit on the plug itself. The fan has power."
+    - "The TV is on, its state is correct in the dashboard, and it can be toggled from the panel."
+    - "The presence sensor reports presence."
+    - "Trigger it: turn the TV on and confirm the rule's Last triggered updates — the rule must visibly RUN while the fan does not react."
+
+  teardown_checklist:
+    - "Re-enable the Dreo integration and confirm the Smart Fan is available again."
+    - "Confirm the rule now turns the fan off when the TV comes on."
+
+  hidden_apparatus:
+    - >
+      THAT THE FAN'S INTEGRATION WAS DISABLED. The agent must never learn this, and it must never
+      be able to infer it. From inside the room this is simply "the fan is unreachable" — which is
+      exactly what a real Wi-Fi dropout looks like, and is a fault the participant can and should
+      diagnose from its symptoms alone.
+    - "The IR blaster that drives the TV. The participant sees a TV; they must never learn its command path is infrared. See memory: tv-is-not-a-probe."
+
+  observable_in_dashboard: true
+  observable_note: >
+    UNUSUALLY DIRECT — the faulty device announces itself. The Smart Fan reads UNAVAILABLE. Nothing
+    else does.
+
+    - Your Room / All Devices > Smart Fan: UNAVAILABLE. This is the single strongest observable in
+      any scenario in the set, and it is visible without doing anything.
+    - Your Room > TV: on, correct state, and it can be toggled from the panel.
+    - Your Room > Presence Sensor: reports presence. Correct.
+    - All Devices > Fan Smart Plug: ON. So the fan is powered — the plug is not the fault.
+    - All Rules > the movie-mode rule: correctly written, and its LAST TRIGGERED updates when the
+      TV comes on. The rule RAN. Whatever is wrong is downstream of it.
+
+    Because exactly one device in the room is unavailable and everything else is healthy, the
+    unavailable one IS the fault. There is nothing else it could be.
+
+  observable_in_room: >
+    - The FAN still runs, and still responds to the buttons on the unit. It is alive. This is the
+      check that turns "unavailable" into "connection, not device".
+    - The FAN SMART PLUG has a white LED on it, lit — visible confirmation it is connected and
+      supplying power.
+    - The TV can be operated from its own remote, confirming it is healthy.
+    - The PRESENCE SENSOR can ONLY be checked on the dashboard. It has no indicator light, and the
+      participant cannot leave the room mid-session to make it change. Do not send them to verify
+      it physically — it cannot be done.
+
+root_cause:
+  statement: >
+    The Smart Fan is no longer reachable by the smart home — it shows as unavailable. The fan
+    itself is fine: it is powered, it is running, and it responds to its own buttons. The link
+    between the system and the fan is gone, so the rule's command to switch it off never arrives.
+  why_it_produces_symptom: >
+    Every part of the chain works except the last one. The TV comes on and reports it. Presence is
+    detected. The rule sees both, fires, and issues "turn the fan off" — and there is nothing on
+    the other end to receive it. The fan keeps running, not because it refused, but because it was
+    never told.
+
+    The fan is Wi-Fi, so the hub is not involved anywhere in this. A participant who blames the hub
+    has the right fault class for the wrong reason.
+
+evidence_path:
+  - step: 1
+    check: >
+      ASK WHAT THEY EXPECTED. "The fan is still running" is not yet a fault — a fan running is
+      normal. Ask what they expected to happen and why it seems wrong.
+    observable: "\"It should turn off when I turn the TV on.\""
+    discriminates: >
+      THE CHEAPEST AND MOST IMPORTANT MOVE IN THE SCENARIO, AND IT COSTS NOTHING.
+
+      Why the expectation question matters in general is now a standing rule in the agent's prompt
+      (config_loader response rules, "ASK WHAT THEY EXPECTED"). Do not restate it here.
+
+      What is specific to THIS scenario: until they say it, the complaint has no shape at all — a
+      running fan is a fan working. Their sentence is what turns it into a fault, and it hands over
+      the rule, its trigger and its target at once.
+    rules_out: []
+
+  - step: 2
+    check: "Read the Smart Fan's State."
+    observable: "UNAVAILABLE."
+    discriminates: >
+      The fault is named. The system cannot see the fan. Given everything else in the room is
+      healthy, this is the fault — there is nothing else it could be.
+    rules_out: [rule_misconfiguration, tv_fault, presence_fault]
+
+  - step: 3
+    check: "Have the participant press the buttons on the fan itself, in the room."
+    observable: "The fan responds."
+    discriminates: >
+      THE FINDING. Unreachable from the dashboard, but alive and obedient in the room. A device that
+      works locally and cannot be reached remotely is a CONNECTION fault, not a device fault. This
+      is the discriminator, and it is the one already stated to the agent as
+      functional_discriminator.
+
+      STOP HERE. Nothing further can change the conclusion.
+    rules_out: [device_error]
+
+distractors:
+  - >
+    THE FAN SMART PLUG. The obvious power suspect, and the first thing most people reach for. It is
+    ON, its LED is lit, and the fan is visibly running — so the fan plainly has power. If the fan is
+    running, the plug is working. Checking it is not wrong, but it settles nothing, and a
+    participant can burn several turns on it. (One pilot session did exactly this.)
+  - >
+    THE HUB. "The fan lost its connection" invites "so the hub is down". The fan is WI-FI. It has
+    never used the hub, and every Zigbee device in the room is working anyway. Right fault class,
+    wrong mechanism — score it as a partial.
+  - >
+    THE TV. It is the trigger, it is the most conspicuous device, and it is working. It is also NOT a
+    valid probe for anything: its command goes out over one-way infrared and is never acknowledged,
+    so nothing can be concluded from how it behaves. It does not need to be checked at all.
+  - >
+    THE RULE. It is correct, and its Last triggered proves it ran. A rule that fires and achieves
+    nothing is not a broken rule — it is a rule whose target was not listening.
+  - >
+    CONCLUDING DEVICE ERROR from "unavailable" alone. Reasonable, and wrong: an unavailable device
+    is one the SYSTEM cannot see, which says nothing about whether the device works. The fan is
+    running in front of them. One press of its buttons settles it.
+
+per_condition:
+  shared: >
+    THE DECISIVE EVIDENCE IS PHYSICAL — the fan responding to its own buttons — and is identical in
+    both builds. The "unavailable" state is shown in All Devices in both. Neither build has an
+    advantage on anything that matters here. This is the fairest scenario in the set across
+    conditions.
+  dashboard: >
+    Your Room = grouped cards. The Smart Fan's tile shows UNAVAILABLE directly in the Appliances
+    group — arguably even more prominent here than on the floor map, since it sits in a list the
+    participant is already scanning.
+    Rules: All Devices > tap the Fan row > Attached Rules; then All Rules > open the rule.
+  floor_map: >
+    Your Room = floor map. The TV bubble is lit (it is on); the Smart Fan's is not, and tapping it
+    shows UNAVAILABLE in the right-hand panel.
+    Your Room > Rules draws the TV, the presence sensor and the fan around the same rule node — the
+    clearest statement of "these three belong to one rule", which is precisely what step 1 is trying
+    to establish. Expect floor_map participants to need the expectation question less.
+
+    Last triggered is in All Rules; Last changed is in All Devices. Neither is on the map.
+
+    The Connections view will draw the fan wired to the hub with a solid line — WHICH IS DOUBLY
+    MEANINGLESS HERE, because it is a topology diagram (not a status display) AND the fan is Wi-Fi
+    and does not use the hub at all. See
+    SC-ENTRANCE-DOOR-LIGHT-ON.per_condition.floor_map.connections_view_caveat.
+
+expected_conclusion:
+  fault_class: connection_error
+  technician_handoff: >
+    The fan itself is fine — it is running, it has power, and it works from its own buttons. But the
+    smart home cannot see it at all: it shows as unavailable, so when the automation tries to switch
+    it off when the TV comes on, the command never reaches it. The fan seems to have lost its
+    connection to the system.
+
+grading:
+  # Keep these SPECIFIC. Bare "fan", "unavailable" and "not reachable" are the vocabulary of the
+  # agent's own domain-general rules ("unavailable + responds to its own buttons = connection"),
+  # so using them as answer keywords makes the leakage probe flag legitimate system knowledge as a
+  # leak. Grade on the phrase a correct ANSWER contains, not on words the domain uses.
+  correct_root_cause_keywords:
+    - "smart fan"
+    - "lost its connection"
+    - "system cannot see"
+  # (1) the fan reads unavailable   (2) it still works from its own buttons
+  min_discriminating_checks: 2
+  known_false_conclusions:
+    - >
+      "Device error — the fan is broken." The intended near-miss, from reading "unavailable" as
+      "dead". The fan is running in front of them. Score separately.
+    - >
+      "The fan lost its connection to the HUB." RIGHT FAULT CLASS, WRONG MECHANISM — the fan is
+      Wi-Fi and has no hub. Worth scoring as a partial credit: they identified the failure correctly
+      but not what failed.
+    - "The Fan Smart Plug has lost power / is off."
+    - "The movie-mode rule is misconfigured or did not run."
+    - "The TV is not reporting its state properly."

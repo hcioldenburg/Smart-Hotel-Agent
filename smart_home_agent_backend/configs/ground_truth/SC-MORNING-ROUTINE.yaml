@@ -1,0 +1,386 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# CONFIRMED BY THE USER (2026-07-13). TWO THINGS NEED YOUR DECISION BEFORE THIS RUNS —
+# see open_questions at the bottom. Both are load-bearing.
+#
+# ── What Home Assistant says this rule does ──────────────────────────────────
+#   trigger : input_datetime.experiment_clock reaches 07:00:00
+#   action  : cover.open         -> the curtain
+#   action  : cover.set_position -> roller shutter, 81%
+#   action  : script (TV on, via the hidden IR blaster)
+#   action  : androidtv adb commands — wake the TV, open the radio stream, press play
+#
+#   THE RULE IS NOT MISCONFIGURED, AND IT RAN. Its Last triggered updates on time, and two of
+#   its three targets obey it. Only the curtain does not — because the command never reaches it.
+#   The rule is the victim.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-MORNING-ROUTINE
+  name: "Morning routine runs, but the curtains stay shut"
+  status: draft
+  validated_on: null
+
+symptom:
+  # Verbatim participant briefing (user, 2026-07-13).
+  participant_sees: >
+    It is morning. From your understanding, the system should open the curtains and the shutters
+    to let in daylight, and turn on the TV to play an ambient song. However, you notice the
+    curtains are not open.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not
+    expected to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+
+  affected_devices:
+    - curtain
+  # Both are part of the same rule, both obeyed it, and both are healthy. Their WORKING is the
+  # most useful evidence in the scenario: it proves the rule ran, the clock was right, and the
+  # hub is up.
+  unaffected_but_suspicious:
+    - tv               # "TV" on the dashboard and the floor map
+    - rollo            # "Roller Shutter"
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: connection_error
+
+  mechanism: >
+    The curtain's Zigbee traffic is intercepted, exactly as in the two sensor scenarios — but on
+    an ACTUATOR this time, and that changes what the participant can observe.
+
+    The morning routine fires on time. The roller shutter opens to 81% and reports it. The TV
+    comes on and plays the radio stream, and its state shows on the dashboard. The curtain
+    receives nothing: the command does not reach it, it does not move, and it reports nothing
+    back. Its State and its Last changed freeze at whatever they were before the interception.
+
+    THE CURTAIN HAS NO INDICATOR LIGHT. In SC-DOOR-WINDOW-OPEN-FAN-OFF and
+    SC-ENTRANCE-DOOR-LIGHT-ON a fake LED was mounted on the sensor precisely so that "the device
+    is alive" could be observed directly. There is no equivalent on the curtain motor, and none
+    has been built. So the device-vs-connection distinction here rests on a WEAKER, more
+    inferential signal — see evidence_path step 4 and open_questions.
+
+  where: cover.0x54ef441000c939e0        # the curtain — NOT automation.exp_morning_routine
+  where_note: >
+    NOT the automation. The rule is correct and it RAN — its Last triggered updates on time, and
+    two of its three targets obey it. A participant who "fixes" the rule has misdiagnosed.
+
+  involves_devices:
+    - curtain          # shown as "Curtain"
+    - rollo            # shown as "Roller Shutter"
+    - tv               # shown as "TV"
+
+  reversible_by: >
+    Deactivate the Zigbee interception on the curtain. EXPERIMENTER ACTION ONLY — the session
+    never reaches this stage, fixing it is not the goal, and the agent must never propose it.
+
+  setup_checklist:
+    - "The dashboard clock reads the expected morning time, and the routine has fired: its Last triggered is fresh."
+    - "The ROLLER SHUTTER has done its job — it is open (~81%), and its reported position and Last changed are current."
+    - "The TV is on and playing the radio stream, and its state shows on the dashboard."
+    - "The CURTAIN has not moved and is still closed."
+    - "The curtain appears in the rule's actions and in its own Attached Rules — nothing about the configuration looks wrong."
+    - "All Devices: the curtain's LAST CHANGED is STALE, while the TV's and the roller shutter's are fresh. THIS IS THE KEY OBSERVABLE — confirm it by eye before starting."
+    - "Drag the curtain's position control and watch it: it must SNAP BACK to its previous value within a few seconds (behaviour (a), confirmed in the lab). If it stays where you dragged it, or the entity reads 'unavailable', the rig is not in the state this scenario assumes — stop and re-check the interception."
+    - "Same drag: a 'Sending' spinner must appear next to the position control and turn into a 'No Response' badge after ~7 seconds. Confirm it — this is the participant's only explicit signal that the command was not acknowledged."
+    - "Drag the ROLLER SHUTTER too and confirm it does NOT show that badge: it is healthy this session, moves, and reports, so it must acknowledge normally. A badge on the shutter means the curtain's fault is not isolated — stop."
+    - "NOTE DOWN which position the curtain's State froze at, and whether that agrees or disagrees with the physically shut curtain. Both cases occur and they are not equally hard: a frozen 'open' contradicts the room and hands the participant a shortcut; a frozen 'closed' agrees with the room and hides the fault behind the Last changed timestamp. Record it per session — it is a confound between participants otherwise."
+    - "Every other device responds normally."
+
+  teardown_checklist:
+    - "Deactivate the Zigbee interception."
+    - "Confirm the curtain moves from the dashboard again, and that its reported position and Last changed follow it."
+    - "Confirm the curtain's calibration is intact (see open_questions #2)."
+
+  hidden_apparatus:
+    - "The Zigbee interceptor blocking the curtain."
+    - "The IR blaster that drives the TV. The participant sees a TV; they must never learn its command path is infrared. See memory: tv-is-not-a-probe."
+
+  observable_in_dashboard: true
+  observable_note: >
+    THE DECISIVE SIGNAL IS **LAST CHANGED**, IN ALL DEVICES. The curtain's is stale; the roller
+    shutter's and the TV's are fresh. Everything else is supporting detail.
+
+    - All Devices > Curtain: State frozen, LAST CHANGED old. The device has said nothing since
+      before the fault.
+
+      WATCH THE FROZEN VALUE — IT IS NOT NECESSARILY "CLOSED". It is whatever position the curtain
+      last reported before the interception, so if it was open at that moment the portal will keep
+      showing it OPEN while the curtain is physically SHUT, and it will go on doing so however many
+      times it is commanded. (Observed in a live session, 2026-07-21.)
+
+      Two consequences, both seen to matter:
+        * The value must never be read as the curtain's current position, by the participant OR the
+          agent. It is a cached reading, not an answer.
+        * The portal disagreeing with the room ("it says open, but it's shut") is itself strong
+          evidence that the portal is out of touch with the device — arguably more legible than the
+          Last changed timestamp, because it needs no notion of staleness to interpret. If a
+          participant notices it, credit it: it is the same finding as step 4 by a shorter route.
+    - All Devices > Roller Shutter / TV: Last changed current. The shutter is Zigbee on the same
+      hub — so the hub is fine, and the fault is this one device.
+    - All Rules > Morning Routine: correctly written, and its LAST TRIGGERED is fresh. The rule
+      ran. Whatever is wrong is downstream of it.
+    - Your Room: the curtain's control moves when you drag it — AND THAT IS NOT EVIDENCE. The
+      control is your request, not the curtain's answer. Only the reported State and Last changed
+      are the device speaking. See device_type_knowledge.actuator.physical_indicator.
+    - Your Room > Curtain, AFTER THE PARTICIPANT DRAGS IT: a "Sending" spinner appears next to the
+      position control and becomes a "No Response" badge after ~7 seconds (portal change,
+      2026-07-21). This is the portal stating that the command was never acknowledged, so the
+      snap-back no longer has to be caught by eye. IT IS ARMED ONLY BY A COMMAND THE PARTICIPANT
+      ISSUES FROM THE PORTAL — the morning routine's own failed command shows nothing.
+      It reports an OBSERVATION, not a verdict: "No Response" fits a seized motor just as well as
+      an unreachable one, so it does NOT settle the fault class. Only Last changed does.
+
+  observable_in_room: >
+    The roller shutter is open and the TV is playing — the morning routine plainly happened. The
+    curtain is shut and does not move for anything done on the tablet.
+
+    The TV can be operated from its own remote and the roller shutter from its wall button, and
+    both changes show up on the dashboard. THE CURTAIN HAS NO SUCH FALLBACK: no button, and it
+    must NEVER be moved by hand (that destroys the motor's calibration). It is the one device in
+    the room with no manual cross-check — which is exactly why this scenario is harder than the
+    sensor pair.
+
+root_cause:
+  statement: >
+    The curtain has lost its connection to the hub. The morning routine ran correctly and
+    commanded it, but the command never reached it, so the curtain never moved and never reported
+    anything back.
+  why_it_produces_symptom: >
+    Everything upstream is healthy, and provably so: the rule fired on time, and the two other
+    devices it commands — the roller shutter and the TV — both obeyed. That eliminates the clock,
+    the rule and the hub in one stroke, because they are shared and they evidently worked.
+
+    Only the curtain is silent. It does not act, and it does not answer. And because it has no
+    indicator light and no manual control, "silent because it is broken" and "silent because it
+    cannot be reached" look identical in the room. The only thing separating them is that a
+    reachable device — even a mechanically broken one — would still be TALKING: it would report
+    its position, and its Last changed would move. The curtain's has not moved at all.
+
+evidence_path:
+  - step: 1
+    check: "Ask what else the morning routine was supposed to do, and whether it did it: is the roller shutter open, is the TV on and playing?"
+    observable: "Both happened."
+    discriminates: >
+      THE STRONGEST MOVE HERE, AND THE CHEAPEST. If two of the rule's three targets obeyed it,
+      then the rule ran, the clock was right, and the hub is up. Three whole branches eliminated
+      by one question, before touching the dashboard. Anything still wrong is specific to the
+      curtain.
+    rules_out: [rule_misconfiguration, clock_error, hub_fault]
+
+  - step: 2
+    check: "Open the Morning Routine rule and read its Last triggered."
+    observable: "It fired on time."
+    discriminates: "Confirms directly what step 1 inferred. The rule is not the fault."
+    rules_out: [rule_misconfiguration]
+
+  - step: 3
+    check: >
+      Operate the curtain from the room view — drag its position control — then STAY ON IT for the
+      next several seconds, watching both the control and the actual curtain.
+
+      THE CUE IS ARMED ONLY BY A COMMAND THE PARTICIPANT ISSUES FROM THE PORTAL. The morning
+      routine's own failed command produces nothing on screen. So "the curtain didn't open this
+      morning" is never enough to get here — they have to try the control themselves.
+    observable: >
+      A "Sending" spinner appears next to the position control and becomes a "No Response" badge
+      after about 7 seconds. The curtain does not move, and the control returns to its previous
+      value. (Snap-back verified in the lab — behaviour (a), resolved_questions #1; the badge was
+      added to the portal on 2026-07-21.)
+    discriminates: >
+      THIS IS THE OBSERVATION, and it is worth far more than "the curtain didn't move". The command
+      was not acknowledged, and since 2026-07-21 the portal says so outright instead of leaving it
+      to a participant patient enough to catch the snap-back.
+
+      What that behaviour means in general — and that the agent must tell the participant to WAIT
+      and watch the control rather than glance and move on — is domain knowledge, stated once in
+      device_knowledge.yaml > device_type_knowledge.actuator.physical_indicator. Do not restate it
+      here.
+
+      What it buys THIS scenario: it kills the most seductive wrong path — "the command went
+      through, so the connection is fine, the motor must be broken." It demonstrably did not go
+      through.
+
+      WHAT IT DOES NOT SETTLE: it does not separate "unreachable" from "reachable but mechanically
+      seized" — a seized motor would fail to acknowledge and would report an unchanged position
+      too, and would look identical. The badge is deliberately worded as an OBSERVATION ("No
+      Response"), not a verdict, precisely so that it does not answer this for them. That
+      separation is made in step 4, and only there.
+    rules_out: [command_accepted, rule_misconfiguration]
+
+  - step: 4
+    check: "In All Devices, read the Curtain's State and LAST CHANGED. Compare with the Roller Shutter's and the TV's."
+    observable: "The curtain's Last changed is old. The other two are current."
+    discriminates: >
+      THE FINDING.
+
+      The general rule — a cover reports its position back, so a stale report means the system is
+      not hearing the device, while a broken-but-reachable motor would still be reporting — is
+      DOMAIN KNOWLEDGE, not an answer. It is stated once, for the agent, in device_knowledge.yaml
+      > device_type_knowledge.actuator.physical_indicator. Do not restate it here: two copies
+      drift, and it trips the leakage probe's verbatim check.
+
+      What is SPECIFIC to this scenario, and secret: it is the CURTAIN that has gone silent, while
+      the roller shutter and the TV — same rule, same hub — are still reporting. It is not being
+      heard. That is the fault.
+    rules_out: [device_error, rule_misconfiguration]
+
+distractors:
+  - >
+    NOT WAITING FOR THE ACKNOWLEDGEMENT. Drag the curtain's control and, for a second or two, the
+    number on screen changes — because the control is showing the participant their own request. If
+    they look away, or move straight on to the next check, they will carry away "the command went
+    through, so the connection must be fine, the motor must be broken."
+
+    LARGELY MITIGATED since 2026-07-21: a "Sending" spinner appears at once and becomes a "No
+    Response" badge after ~7 seconds, so the portal states the outcome rather than relying on the
+    participant catching the snap-back. NOT eliminated — the verdict still takes ~7 seconds and they
+    must remain on the curtain to see it. The trap is impatience, not misreading.
+  - >
+    READING THE SNAP-BACK AS A DEAD MOTOR. It is equally consistent with a seized motor that is
+    still reachable — such a curtain would also report an unchanged position. The snap-back proves
+    the command was not ACCEPTED; it does not say why. Only step 4 (the curtain has not reported
+    anything AT ALL, while the shutter and TV have) says why.
+  - >
+    CONCLUDING DEVICE ERROR. The intended near-miss. The curtain does nothing, has no light, and
+    cannot be tested by hand — so "the motor is dead" is an entirely reasonable read. The only
+    thing against it is that a dead motor would still be TALKING, and this one is not. That is a
+    subtler inference than the sensor scenarios ask for.
+  - >
+    Blaming the rule. It ran, on time, and two of its three targets obeyed. A rule that
+    half-worked is not a broken rule.
+  - >
+    Blaming the clock. It was right — the routine fired when it should have. (Contrast
+    SC-EVENING-WIND-DOWN, where the clock IS the fault. A participant who has done that scenario
+    may reach for it here.)
+  - >
+    Blaming the hub. The roller shutter is Zigbee, on the same hub, and it obeyed the same rule
+    seconds earlier. Shared infrastructure that demonstrably works cannot explain a single-device
+    failure.
+  - >
+    The TV. It works, and it is the most conspicuous part of the routine. It is also not a valid
+    probe for anything (its command path is one-way IR) — but it does not need to be, because it
+    is not the fault.
+
+per_condition:
+  shared: >
+    THE DECISIVE EVIDENCE IS **LAST CHANGED**, IN ALL DEVICES — which exists identically in BOTH
+    builds, as does All Rules. Neither build has an advantage on the step that actually settles
+    this, and both must go to All Devices to get it: the room views show State, but not Last
+    changed.
+
+    The step-3 "No Response" badge is also present in BOTH builds and is reached the same way in
+    each — by dragging the curtain's own position control. On the dashboard it renders on the
+    curtain tile; on the floor map it renders in the right-hand device panel, next to the same
+    slider. No condition advantage.
+  dashboard: >
+    Your Room = grouped cards. The Curtain, Roller Shutter and TV are spread across the Appliances
+    and TV & Media groups, so "these three are one routine" must be assembled in the participant's
+    head from the rule's text.
+  floor_map: >
+    Your Room = floor map. Your Room > Rules draws the curtain, the roller shutter and the TV all
+    linked to the SAME Morning Routine node — the clearest possible statement of "one rule drives
+    these three", which is the insight that makes step 1 available. Expect floor_map participants
+    to find it faster; that is a genuine presentation effect and is what the study is for.
+
+    On the map the roller shutter and TV bubbles are lit and respond to being tapped; the curtain
+    bubble does not. The panel shows State but NOT Last changed — for that, both conditions must
+    go to All Devices.
+
+    The Connections view will draw the curtain wired to the hub with a solid line, as it does for
+    everything (topology, not status). It cannot express this fault. See
+    SC-ENTRANCE-DOOR-LIGHT-ON.per_condition.floor_map.connections_view_caveat.
+
+expected_conclusion:
+  fault_class: connection_error
+  technician_handoff: >
+    The morning routine ran correctly — the shutter opened and the TV came on, both on time. Only
+    the curtain did nothing, and it has not reported anything back to the system since before this
+    started, while everything else has. The curtain seems to have lost its connection.
+
+grading:
+  correct_root_cause_keywords:
+    - "connection"
+    - "curtain"
+  # (1) the rest of the routine worked   (2) the curtain's Last changed is stale
+  min_discriminating_checks: 2
+  known_false_conclusions:
+    - >
+      "Device error — the curtain motor is broken." THE INTENDED NEAR-MISS, and far easier to fall
+      into than in the sensor scenarios: the curtain has no indicator light and no manual control,
+      so nothing directly demonstrates that it is alive. Score separately. Reaching it means the
+      participant never asked whether the curtain was still TALKING.
+    - "The Morning Routine rule is misconfigured / did not run."
+    - "The clock is wrong, so the routine ran at the wrong time."
+    - "The hub is down."
+    - "It worked — the control moved."   # mistaking the request for the answer
+
+# ══ RESOLVED (user, 2026-07-13) ══════════════════════════════════════════════════════
+resolved_questions:
+  - id: 1
+    title: "What the curtain's control does under interception — SETTLED: it SNAPS BACK."
+    answer: >
+      Behaviour (a). Drag the control and it returns to its previous value on the next poll,
+      because HA's current_position never changed — the curtain never answered.
+
+      This is the best of the three possibilities. The control snapping back is the dashboard
+      openly admitting the command was not accepted, and it removes the scenario's most dangerous
+      failure mode: a participant concluding "it went through, so the connection is fine". It did
+      not go through, and the dashboard says so within seconds — provided they wait.
+
+      Evidence step 3 and the distractors are written against this behaviour.
+    watch_for: >
+      The signal has a TIME COST. For a second or two the control shows the dragged value, and only
+      then corrects. A participant who drags and immediately moves on carries away the opposite
+      conclusion. If a transcript shows them treating the command as successful, check whether they
+      ever paused to look back at the control.
+
+  - id: 2
+    title: "Moving the curtain by hand — NOT USED."
+    answer: >
+      Agreed, and dropped. It is forbidden in three places (environment controls.physical
+      usable: false, device_knowledge, portal_tasks), a cooperative participant told to pull the
+      curtain would do it, and the motor would be decalibrated for every session after theirs.
+
+      It also proves less than it looks: a rail that moves freely shows the RAIL is free, not that
+      the motor's electronics are alive — which is exactly the distinction this scenario turns on.
+      It could not have done the job it was being asked to do.
+
+# ══ HONEST LIMITATION — read this before analysing the results ════════════════════════
+known_limitation: >
+  STILL STANDS AFTER THE 2026-07-21 PORTAL CHANGE — read this note first. The new "No Response"
+  badge (evidence step 3) makes it reliable that the participant LEARNS THE COMMAND WAS NOT
+  ACKNOWLEDGED; that used to depend on their catching the snap-back by eye. It does NOT touch the
+  limitation below, and deliberately so: "No Response" is worded as an observation, not a verdict,
+  because it fits a seized motor exactly as well as an unreachable device. So the badge strengthens
+  step 3 and leaves step 4 (Last changed) as the only thing that settles the fault class.
+
+  An earlier draft of that badge read "Not connected", which WOULD have collapsed this limitation by
+  naming the fault class outright. It was reworded before any session ran. If you ever see "Not
+  connected" in a build, the scenario is compromised — the answer is on screen.
+
+  Even with the snap-back and the badge, THE DEVICE-VS-CONNECTION CALL HERE IS INFERRED, NOT
+  OBSERVED.
+
+  The sensor scenarios have a direct, physical demonstration that the device is alive: the light
+  flashes. The curtain has nothing equivalent — no indicator, and no safe manual control. So the
+  chain a participant must complete is longer and more abstract:
+
+    the rest of the routine worked        -> rule, clock and hub are fine
+    the curtain did not accept the command -> (snap-back)
+    the curtain has not reported ANYTHING, while the shutter and TV have -> it is not being heard
+
+  That last step is a real inference — "a broken-but-reachable motor would still be talking" — and
+  it is a step no participant is forced to take. A seized motor is a perfectly reasonable competing
+  explanation for everything they can see, and someone who lands on "device error" here has not
+  reasoned badly. Expect a materially higher wrong-answer rate on this scenario than on
+  SC-ENTRANCE-DOOR-LIGHT-ON, which is the same fault class with a direct observable.
+
+  If that matters for the comparison you want to draw, the fix is to fit the curtain with the same
+  fake-indicator rig as the sensors. That would make "the device is alive" directly observable and
+  would make the whole scenario set consistent in what it demands.

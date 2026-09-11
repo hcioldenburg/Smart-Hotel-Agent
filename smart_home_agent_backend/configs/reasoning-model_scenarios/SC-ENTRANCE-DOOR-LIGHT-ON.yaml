@@ -1,0 +1,33 @@
+# THE PARTICIPANT BRIEFING CARD — read to (or by) the participant at the start of a session.
+#
+# THE AGENT NEVER SEES THIS FILE. As of 2026-07-14 the scenario is deliberately NOT rendered
+# into the agent's prompt: the agent is a GENERAL troubleshooter for the whole lab, working
+# any problem from its room knowledge (devices, both portal builds, rules, switches, the time
+# model) — never primed with which predefined case, if any, is running. The scenario id chosen
+# at the Start-a-case gate is a GRADING LABEL: it stamps the session so it can be scored
+# against configs/ground_truth/<id>.yaml afterwards, and does nothing else.
+#
+# This file is therefore for HUMANS: the canonical wording of what the participant is told.
+# Keep it in step with symptom.participant_sees in the matching ground-truth file. The ANSWER
+# — injected fault, root cause, evidence path, grading — lives in configs/ground_truth/SC-ENTRANCE-DOOR-LIGHT-ON.yaml,
+# which is never loaded. scripts/check_prompt_leakage.py enforces the boundary.
+
+metadata:
+  scenario_id: SC-ENTRANCE-DOOR-LIGHT-ON
+  name: "Door light does not turn on when entering in the evening"
+  source: lab_study_2026
+  version: 1.0
+
+context:
+  space: "Smart Hotel Studio"
+  # Verbatim participant briefing. It states their EXPECTATION ("the door light should turn on
+  # automatically in the evening when the door opens") without naming a rule, a device, or a
+  # cause — which is exactly the line to hold.
+  scenario_description: >
+    It is the evening. The participant enters the room, and the door light does not turn on. As
+    they understand it, the door light should turn on automatically in the evening when the door
+    opens and someone enters the room.
+
+    Their task is to investigate and diagnose the cause of the malfunction, thinking out loud,
+    and to identify the error type — device, connection, or configuration — and describe
+    specifically where the observed error originates. They are not expected to fix anything.

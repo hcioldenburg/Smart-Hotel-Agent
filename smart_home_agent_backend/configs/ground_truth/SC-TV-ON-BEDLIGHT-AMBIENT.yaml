@@ -1,0 +1,258 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# CONFIRMED BY THE USER (2026-07-13).
+#
+# ── What Home Assistant says this rule does ──────────────────────────────────
+#   trigger   : binary_sensor.tv_status -> on
+#   condition : the time is in the evening window (19:00 - 01:00)
+#   action    : light.turn_on -> Bedlight R, 100%, 10s fade
+#   action    : light.turn_on -> Bedlight L, 100%, 10s fade   [DISABLED — does not run]
+#
+#   The Bedlight L step is still in the HA config but is switched OFF in the editor, so it never
+#   runs. The participant-facing rule reflects that honestly: it lists Bedlight R and no more.
+#   THE RULE IS THE FAULT HERE — unusually, it is not a victim. It does exactly what it says; what
+#   it says is incomplete.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-TV-ON-BEDLIGHT-AMBIENT
+  name: "Only one bed light comes on with the TV"
+  status: draft
+  validated_on: null
+
+symptom:
+  # Verbatim participant briefing (user, 2026-07-13).
+  participant_sees: >
+    It's 8 PM. You turn on the TV, expecting the room to switch into a movie-like atmosphere. The
+    right bed light changes to a soft ambient setting, but the left bed light stays off.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not expected
+    to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+
+  affected_devices:
+    - bedlight_l       # should have come on; did not
+  unaffected_but_suspicious:
+    - bedlight_r       # came on correctly — and its working is the best evidence in the scenario
+    - tv               # the trigger; on, and reporting correctly
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: rule_config
+
+  # A MISSING ACTION. The purest kind of configuration error: not a wrong value, not an inverted
+  # threshold — a step that simply is not there. Nothing misbehaves; something merely never happens.
+  mechanism: >
+    Bedlight L has been taken out of the rule. In HA the "turn on Bedlight L" action step is
+    switched OFF in the editor (enabled: false) — it remains in the config but never executes.
+
+    The rule now has exactly one action: turn on Bedlight R. It fires on time, in the right window,
+    and performs that one action perfectly. The left bed light is simply never told to do anything.
+
+    THIS IS HONESTLY REPRESENTED TO THE PARTICIPANT, and that is what makes it solvable:
+      - the rule's card lists a single action, "Bedlight R to 100%", and no mention of Bedlight L
+      - Bedlight L's Attached Rules list is EMPTY — no automation refers to it at all
+      - on the floor map's dependency graph, Bedlight L has NO EDGE to the rule node
+    Three independent places all say the same thing: this light is not part of that rule.
+
+  where: automation.exp_tv_on_bedlight_ambient
+  where_note: >
+    The rule itself IS the fault — it is not a victim here (contrast SC-MORNING-ROUTINE and the
+    sensor scenarios, where a correct rule is starved of an input). Bedlight L should have been
+    turned on and was not, because nothing in the system asks it to be.
+
+  involves_devices:
+    - bedlight_l
+    - bedlight_r
+    - tv
+
+  reversible_by: >
+    Re-enable the "turn on Bedlight L" action step in the automation. EXPERIMENTER ACTION ONLY —
+    the session never reaches this stage. In the participant's world this is the technician's job:
+    "call support and ask them to add the left bed light back into the rule."
+
+  setup_checklist:
+    - "The TV On Bedlight Ambient automation is ENABLED."
+    - "The Bedlight L action step inside it is DISABLED (enabled: false). Confirm in the HA editor."
+    - "The dashboard clock is inside the evening window (19:00-01:00), so the rule's time condition is genuinely satisfied. Otherwise the participant is chasing a second, unintended fault."
+    - "Turn the TV on and confirm: Bedlight R comes up to full, Bedlight L stays off, and the rule's Last triggered updates. The rule must visibly RUN and half-work."
+    - "BOTH bed lights are healthy: each responds from the dashboard AND from its own switch on the bedside drawer. Bedlight L must be provably fine — that is the whole point."
+    - "The participant-facing rule card lists ONE action (Bedlight R) and does not mention Bedlight L. Bedlight L's Attached Rules list is empty. scripts/check_rule_drift.py enforces this; run it."
+
+  teardown_checklist:
+    - "Re-enable the Bedlight L action step."
+    - "Turn the TV on and confirm BOTH bed lights now come up."
+
+  hidden_apparatus:
+    - "The IR blaster that drives the TV. The participant sees a TV; they must never learn its command path is infrared. See memory: tv-is-not-a-probe."
+
+  observable_in_dashboard: true
+  observable_note: >
+    THE ABSENCE IS THE EVIDENCE, and it is visible in three independent places. Nothing here reads
+    as an error — there is simply nothing where something should be:
+
+    - All Rules > TV On Bedlight Ambient: triggers on the TV, evening window, and ONE action —
+      "Bedlight R to 100%". Bedlight L is not mentioned. LAST TRIGGERED IS FRESH: the rule ran.
+    - All Devices > Bedlight L > Attached Rules: EMPTY. No automation refers to this light at all.
+      (Its bedside switch is a physical switch and lives in All Rules > Physical switches, not
+      here.) This is the cleanest single clue in the scenario.
+    - All Devices > Bedlight R: healthy, and its Last changed updated when the TV came on — because
+      the rule acted on it.
+
+    Read together: the rule ran, it did everything it was told to do, and it was never told about
+    Bedlight L.
+
+  observable_in_room: >
+    Both bed lights work perfectly. Each can be toggled from the dashboard AND from its own switch
+    on the bedside drawer, and the room responds. The TV can be operated from its remote. NOTHING
+    IN THIS ROOM IS BROKEN — there is no device to find and no connection to test, and a
+    participant can spend the entire session proving that.
+
+root_cause:
+  statement: >
+    The left bed light has been left out of the rule. When the TV comes on in the evening, the
+    automation turns on the right bed light only — the left one is not part of it, so it is never
+    switched on.
+  why_it_produces_symptom: >
+    The rule fires on time and does exactly what it is written to do. What it is written to do is
+    incomplete: it names one bed light where it should name two.
+
+    Every component is healthy. Both lights work. The TV works. The trigger fires, the time
+    condition is satisfied, the action executes. The failure is not something going wrong — it is
+    something never being asked for. Nothing errors, nothing is unavailable, and no device
+    misbehaves, which is precisely why participants go looking for a broken light.
+
+evidence_path:
+  - step: 1
+    check: >
+      ASK WHY THEY EXPECTED IT. "The left bed light is off" is not a fault — a lamp that is off is a
+      lamp. Ask why it being off is surprising: what did they expect, and what made them expect it?
+    observable: "\"When I turn the TV on in the evening, both bed lights are supposed to come on.\""
+    discriminates: >
+      Turns "a light is off" into a contradiction, and names the trigger (the TV), the window (the
+      evening) and the expected targets (both lights). Without it there is no fault to investigate
+      at all — only a lamp that is not lit.
+    rules_out: []
+
+  - step: 2
+    check: "Toggle Bedlight L from the room view, and have them press its own switch on the bedside drawer."
+    observable: "It comes on both ways."
+    discriminates: >
+      Bedlight L is healthy AND reachable. Not a device fault, not a connection fault. The light can
+      be commanded perfectly well — it simply was not commanded. Whatever is wrong is upstream, in
+      whatever should have done the commanding.
+    rules_out: [device_error, connection_error]
+
+  - step: 3
+    check: >
+      Open Bedlight L's card in All Devices and read its Attached Rules. Then open the rule that
+      DID act — via Bedlight R or the TV — and read its actions.
+    observable: >
+      Bedlight L: no rules attached at all. The rule: one action, "Bedlight R to 100%". Last
+      triggered is fresh.
+    discriminates: >
+      THE FINDING. The rule ran (Last triggered is fresh) and did everything it lists. It lists only
+      the right-hand light. The left one is in no automation whatsoever. It was not skipped, not
+      blocked, not unreachable — it was never in the rule. Configuration error.
+    rules_out: [device_error, connection_error, rule_did_not_run]
+
+distractors:
+  - >
+    BEDLIGHT L'S "LAST CHANGED" IS STALE — AND IT IS INNOCENT. The light has not changed because
+    nothing has changed it. In SC-MORNING-ROUTINE and the two sensor scenarios the identical
+    reading means "the system cannot reach this device". Here it means "the system never spoke to
+    this device". Same timestamp, opposite faults.
+
+    WHAT SEPARATES THEM IS NOT THE TIMESTAMP — IT IS WHETHER IT MOVES WHEN YOU PUSH IT. Toggle
+    Bedlight L, from the dashboard or from its bedside switch, and its Last changed UPDATES
+    immediately: the device is alive and the system is hearing it perfectly. Do the equivalent in
+    the other scenarios — open the window, drag the curtain's control — and the timestamp does not
+    move at all, because nothing is listening. That is the whole difference, and it costs one
+    check.
+
+    THIS IS A CROSS-SCENARIO TRAP. A participant who has already done a sensor scenario or the
+    morning routine has learned "stale = connection problem", and this is exactly where that habit
+    misfires. Watch for it: a wrong "connection error" here is very likely a carried-over heuristic
+    firing on an idle device, not a failure of reasoning. Score it as such.
+
+    (The general rule — a stale Last changed is not evidence until you have tried to make it
+    change — is stated once, for the agent, in the response rules and in
+    portal_tasks.check_device_state_in_all_devices. Do not restate it here.)
+  - >
+    CONCLUDING DEVICE ERROR — "the left bulb is dead". It is the only thing visibly not happening.
+    It works from the dashboard and from its own switch. One toggle settles it.
+  - >
+    THE RULE'S NAME. "TV On Bedlight Ambient" is singular and says nothing about which lights, so
+    the participant cannot check it against their expectation without opening it. Its name is not a
+    lie — it is just uninformative. The answer is only in the actions.
+  - >
+    "The rule didn't run." It did, and Last triggered proves it. Bedlight R coming on proves it too.
+    A rule that HALF-worked is the strongest hint available that the rule itself is what to read —
+    a rule that fires and achieves half of what you expected is not blocked, it is incomplete.
+  - >
+    The TV. It is the trigger and it worked. It is also NOT a valid probe for anything — its command
+    goes out over one-way infrared and is never acknowledged.
+
+per_condition:
+  shared: >
+    THE DECISIVE EVIDENCE IS THE RULE'S ACTION LIST, IN ALL RULES — identical in both builds, as is
+    Bedlight L's empty Attached Rules list in All Devices. Both conditions can reach everything that
+    matters. No physical check is needed to solve it (though step 2 is what rules out the device).
+  dashboard: >
+    Your Room = grouped cards; both bed lights are in the Lights group with inline toggles, side by
+    side — which makes the asymmetry (one lit, one not) immediately visible.
+    Rules: All Devices > tap Bedlight R or the TV > Attached Rules > open the rule. Bedlight L's own
+    card shows an EMPTY Attached Rules list, which is the clue.
+  floor_map: >
+    Your Room = floor map. Bedlight R's bubble is lit and Bedlight L's is not — the asymmetry is
+    spatial and immediate.
+
+    YOUR ROOM > RULES IS THE STANDOUT ADVANTAGE OF THIS BUILD ON THIS SCENARIO. Tap the TV or
+    Bedlight R and the dependency graph draws an edge to the TV On Bedlight Ambient node. Tap
+    Bedlight L and there is NO EDGE AT ALL — it is not connected to the rule, visibly, as a picture.
+    The fault is a MISSING LINK, and this is the one view in the study that renders a missing link
+    as a missing line.
+
+    Expect floor_map participants to be markedly faster here. That is a genuine presentation effect
+    and is exactly what the study exists to measure — of all six scenarios, this is the one where
+    the spatial/graph view should help most.
+
+    The Connections view is irrelevant (nothing is unreachable).
+
+expected_conclusion:
+  fault_class: rule_config
+  technician_handoff: >
+    Both bed lights work — I can switch them on and off myself, from the tablet and from the
+    switches by the bed. The problem is the rule: when the TV comes on in the evening, it only turns
+    on the right bed light. The left one is not part of the rule at all. It needs adding back in.
+
+grading:
+  # Specific. "bed light" and "rule" are the vocabulary of the briefing and the domain; grade on the
+  # ABSENCE, which is what a correct answer names.
+  correct_root_cause_keywords:
+    - "not in the rule"
+    - "only the right"
+    - "left bed light"
+  # (1) Bedlight L works when toggled   (2) the rule's actions name only Bedlight R
+  min_discriminating_checks: 2
+  known_false_conclusions:
+    - >
+      "Connection error — Bedlight L is unreachable." THE CROSS-SCENARIO TRAP. Reached by reading a
+      stale Last changed as a connection failure, as it IS in three of the other scenarios. Here the
+      light is perfectly reachable and simply idle. Score separately, and check whether the
+      participant had already done SC-MORNING-ROUTINE or a sensor scenario — this wrong answer is
+      most likely a learned habit misfiring, not a failure of reasoning.
+    - >
+      "Device error — the left bulb is dead." It works from the dashboard and from its own switch.
+      One toggle settles it.
+    - >
+      "The rule did not run." It did — Last triggered is fresh, and the right bed light came on. A
+      rule that HALF-worked is the strongest available hint that the rule itself is what to read.
+    - >
+      "The TV did not report its state properly." It did; the rule fired on it, and the right light
+      responded.

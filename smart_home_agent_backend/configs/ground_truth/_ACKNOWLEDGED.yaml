@@ -1,0 +1,46 @@
+# Passages the leakage probe flags that a human has reviewed and judged SAFE.
+#
+# The probe's L3/LATENT tiers are deliberately over-sensitive: they flag any passage that
+# ties a broken device to the thing that breaks it. Some of those are domain-general
+# system facts that happen to name two devices in one sentence, and they are fine.
+#
+# They still have to be flagged, because the alternative is a probe that misses real
+# leaks. So the noise is dealt with here instead: review a passage once, record WHY it is
+# safe, and the probe stops repeating it. Anything not on this list is unreviewed.
+#
+# The test to apply, every time:
+#   Would this sentence still be written exactly this way if a DIFFERENT fault had been
+#   injected?  Yes -> system knowledge, acknowledge it.  No -> it is a leak, fix the text.
+#
+# Match is on a substring of the flagged passage. Keep it long enough to be specific.
+
+acknowledged:
+  - match: "The TV is NOT a reliable probe"
+    where: guided_diagnostic_behavior.yaml -> config_loader prompt
+    reviewed: 2026-07-13
+    why_safe: >
+      A permanent physical fact about the lab's wiring: the TV's command leaves over IR
+      and its state returns over Wi-Fi, so a non-responding TV is uninformative. This is
+      true no matter which fault is injected — it would still need saying if the TV were
+      never part of any scenario. It names the fan only because the fan is the
+      recommended alternative probe, not because the fan is broken.
+      See memory: tv-is-not-a-probe.
+
+  - match: "Prefer the quickest reliable check"
+    where: config_loader response rules -> the operate-it-first prompt line
+    reviewed: 2026-07-13
+    why_safe: >
+      A domain-general efficiency rule: if a device can be operated from the room view, operate it
+      and watch, rather than reading a State column. It names the shutter and the curtain only as
+      examples of devices that HAVE a room-view control, and it would be written identically if no
+      fault were injected anywhere. It says nothing about either of them being broken.
+
+  - match: "a hub fault cannot explain a fan or TV problem"
+    where: device_knowledge.yaml -> smart_hub.diagnostic_notes, and check_hub_status
+    reviewed: 2026-07-13
+    why_safe: >
+      A protocol fact, not a fault. The hub carries Zigbee; the Smart Fan and the TV are
+      Wi-Fi and do not pass through it. That is true of the wiring of the room and would be
+      true if no fault were injected at all. It names the fan and the TV together only
+      because they are the two Wi-Fi devices — which is exactly the distinction the agent
+      needs in order to STOP reaching for hub hypotheses to explain a Wi-Fi device.

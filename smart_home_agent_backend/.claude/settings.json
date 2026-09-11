@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PYTHONIOENCODING=utf-8 ./smart_home_agent_backend/.venv/Scripts/python.exe -m smart_home_agent_backend.eval.logic_checks)",
+      "Read(//c/Users/psanei_ganjeh/Sherlock_Home_Project/**)",
+      "Bash(PYTHONIOENCODING=utf-8 python -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m smart_home_agent_backend.eval.report --dir logs/sim_runs/eval_9scenarios_0723)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m smart_home_agent_backend.eval.grade_sessions)",
+      "Bash(ls \"C:/Users/psanei_ganjeh/Downloads/\" | grep -i thesis)",
+      "Read(//c/Users/psanei_ganjeh/Downloads/**)",
+      "Bash(ls -R \"C:/Users/psanei_ganjeh/Downloads/Pantea_Sanei_Ganjeh___MSc_Thesis \\(1\\)\" | head -60)",
+      "Read(//c/Users/psanei_ganjeh/Downloads/Pantea_Sanei_Ganjeh___MSc_Thesis \\\\\\(1\\\\\\)/**)"
+    ]
+  }
+}

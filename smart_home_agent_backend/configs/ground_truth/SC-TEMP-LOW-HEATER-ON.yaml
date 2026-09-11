@@ -1,0 +1,266 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# CONFIRMED BY THE USER (2026-07-13): the automation's behaviour IS the injected fault, and
+# it is exactly what the participant should be guided to find.
+#
+# ── What Home Assistant says this rule does ──────────────────────────────────
+#   enabled now : False
+#   last fired  : 2026-07-09T15:41:30.327837+00:00
+#   trigger     : time_pattern: hours=* minutes=* seconds=30
+#   trigger     : numeric_state: sensor.temp_humid_temperature above=19
+#   condition   : state: binary_sensor.presencesensor_presence == on
+#   action      : climate.set_temperature → climate.heater | {'temperature': 30}
+#
+#   HA ORs its triggers. The time_pattern fires at :30 of EVERY minute, regardless of
+#   temperature — so the `above: 19` trigger never gates anything. Net effect: while presence
+#   is detected, the heater is re-set to 30 degrees once a minute, forever.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-TEMP-LOW-HEATER-ON
+  name: Temp Low Heater On
+  status: draft
+  validated_on: null
+
+symptom:
+  # Verbatim participant briefing (user, 2026-07-13). Note it names the EXPECTATION — heating
+  # should only run when someone is present AND it drops below 19C — which is what turns "the
+  # heater is on" into a fault. Without that sentence there is no complaint.
+  participant_sees: >
+    It is a hot summer day. You enter the room and notice the Heater is running. From your
+    understanding, the heating should only activate when someone is in the room and the
+    temperature drops below 19°C.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not
+    expected to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+  affected_devices:
+    - heater
+  unaffected_but_suspicious:
+    - temperaturesensor
+    - presencesensor
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: rule_config
+  # THE INTENTION-VS-IMPLEMENTATION FAULT. This is the purest configuration error in the set:
+  # nothing is broken, nothing is unreachable, and every device does exactly what it is told.
+  # The rule simply says the opposite of what it means.
+  mechanism: >
+    The rule's temperature test is INVERTED. It is meant to heat the room when the temperature
+    drops BELOW 19C. It is written to heat the room when the temperature is ABOVE 19C.
+
+    As it now stands in HA (rewritten 2026-07-13):
+
+      trigger    : re-evaluated once a minute (time_pattern)
+      conditions : presence detected, AND temperature is ABOVE 19C   <-- THE FAULT
+      action     : set the heater target to 30C
+
+    The once-a-minute trigger is a RIG MECHANISM, not the fault. It exists so the rule keeps
+    re-applying: the heater stays pinned at 30C whenever the participant walks in, and if they
+    turn it down it climbs back within a minute. Without it the rule would only fire on the
+    moment the temperature crossed 19C, and the symptom might not be present during the session
+    at all.
+
+    BEFORE THE REWRITE, the temperature test was a TRIGGER sitting alongside the time_pattern.
+    HA ORs triggers, so the rule fired every minute regardless of temperature and the `above: 19`
+    test gated nothing — it was dead code. A participant identifying it as the fault would have
+    been right about the intent and wrong about the mechanism. Moving it to a CONDITION makes
+    the inversion the real, operative cause. That is what the participant now finds.
+
+  where: automation.exp_temp_low_heater_on   # the rule itself IS the fault here — unusually, it is not a victim
+  involves_devices:
+    - heater
+    - temperaturesensor
+    - presencesensor
+
+  reversible_by: >
+    Change the rule's temperature condition from ABOVE 19C to BELOW 19C. EXPERIMENTER ACTION
+    ONLY — the session never reaches this stage, fixing it is not the goal, and the agent must
+    never propose it.
+
+  setup_checklist:
+    - "The Temp Low Heater On automation is ENABLED."
+    - "The rule reads: every minute, IF presence AND temperature ABOVE 19C, set the heater to 30C. Confirm the condition says ABOVE, not below — that inversion is the entire scenario."
+    - "THE ROOM IS ACTUALLY WARM, and the radiator is warm to the touch. The symptom must be FELT, not merely displayed. A heater that reads 30C on the tablet while the room feels fine is only half a symptom."
+    - "The Temperature Sensor reads clearly above 19C — aim for 25-26C, not 20C. The bigger the gap, the starker the contradiction on the dashboard."
+    - "The presence sensor reports presence. It is a real gate: with nobody detected the rule does not fire and the symptom vanishes."
+    - "CONFIRM THE OVERWRITE by eye: set the heater to something other than 30, wait a minute, watch it return to 30. If it does not, the rig is not re-applying and the session is void."
+    - "The heater ACCEPTS a setpoint change before being overwritten — that acceptance is evidence step 1."
+    - "The participant-facing rule text shows the REAL behaviour (ABOVE 19C), not the intended one. scripts/check_rule_drift.py enforces this; run it. If the UI says 'drops below', the fault is invisible and the scenario is unsolvable."
+
+  teardown_checklist:
+    - "Restore the rule (see reversible_by)."
+    - "Set the heater back to its default target."
+    - "Confirm a manual setpoint change now STICKS for more than a minute."
+
+  hidden_apparatus: []              # nothing staged here — the rule really is written this way
+
+  observable_in_dashboard: true
+  observable_note: >
+    THREE NUMBERS THAT CANNOT ALL BE RIGHT TOGETHER. Read together they are the whole scenario;
+    read separately, not one of them looks like a fault:
+
+      the Temperature Sensor says   ~26C
+      the Heater is aiming for       30C
+      and the rule says heating starts when the temperature is ABOVE 19C
+
+    - All Devices > Temperature Sensor: reads well above 19C. The room is warm and the system
+      knows it.
+    - All Devices > Heater: TARGET reads 30C. Change it, wait a minute, and it is 30C again. The
+      revert is the observation — a single reading tells you nothing.
+    - All Rules > Temp Low Heater On: re-evaluated every minute; conditions are presence AND
+      TEMPERATURE ABOVE 19C; action sets the heater to 30C. THE INVERSION IS PRINTED THERE, IN
+      PLAIN TEXT. Everything needed to solve this is on that one card.
+
+    THE RULE'S NAME IS THE TRAP. "Temp Low Heater On" says it only acts when the room is cold — so
+    participants read the name, decide it cannot be relevant on a hot day, and go looking at the
+    heater instead. The name describes the intention; the conditions describe the behaviour. Only
+    one of them is true.
+
+  observable_in_room: >
+    THE ROOM IS HOT AND THE RADIATOR IS WARM. This is the strongest thing in the scenario, and it
+    is not on a screen — the participant walks in and feels it. Nothing about the radiator looks
+    or sounds wrong: it is working perfectly, at the wrong target.
+
+    The participant is themselves an input. The rule is gated on PRESENCE, so if they leave the
+    room it stops firing. Anyone who notices that has found something real.
+
+root_cause:
+  statement: >
+    The heating rule's temperature condition is inverted. It is meant to switch the heating on
+    when the room drops BELOW 19°C; it is written to switch it on when the room is ABOVE 19°C. So
+    on a hot day it does exactly what it says — and heats an already-warm room to 30°C.
+  why_it_produces_symptom: >
+    Nothing is broken and nothing is unreachable. The heater works and accepts every command. The
+    temperature sensor reads correctly. The presence sensor is right. The rule fires reliably, on
+    time, and does precisely what it was told to do.
+
+    It was told the wrong thing. This is the purest configuration error in the set: the gap is
+    between what the system was MEANT to do and what it was WRITTEN to do, and every component in
+    between is behaving impeccably. There is no device to blame and no connection to check —
+    which is exactly why participants look for one.
+
+evidence_path:
+  - step: 1
+    check: >
+      ASK WHAT THEY EXPECTED. A running heater is a heater working. What makes it a fault is that
+      they expected it to run only when the room is cold.
+    observable: "\"It should only come on when it's below 19 degrees.\""
+    discriminates: >
+      Turns "the heater is on" into a contradiction, and hands over the rule, its threshold and its
+      target in one sentence. Cheapest move in the scenario.
+    rules_out: []
+
+  - step: 2
+    check: "Read the Temperature Sensor in All Devices."
+    observable: "It reads well above 19°C. The system knows the room is warm."
+    discriminates: >
+      The sensor is not lying, and the system is not ignorant of the temperature. So this is not a
+      sensor fault, and the heating is running IN FULL KNOWLEDGE that the room is warm. Something
+      decided to heat a warm room on purpose.
+    rules_out: [sensor_fault]
+
+  - step: 3
+    check: "Open the heater's Attached Rules, then open \"Temp Low Heater On\" in All Rules and read its conditions."
+    observable: "Conditions: presence detected, AND temperature is ABOVE 19°C. Action: set the heater to 30°C."
+    discriminates: >
+      THE FINDING, and it is printed in plain text. The rule heats the room when it is ABOVE 19°C.
+      It should heat it when it is BELOW. Its name says "Temp LOW Heater On" and its conditions
+      say the opposite. The rule is doing exactly what it was written to do; what it was written
+      to do is wrong. Configuration error.
+    rules_out: [device_error, connection_error]
+
+  # Optional confirmation, not required for the diagnosis.
+  - step: "alt"
+    check: "Turn the heater down and read its target again a minute later."
+    observable: "It has gone back to 30°C."
+    discriminates: >
+      Confirms a RULE is driving it rather than a person or a stuck valve — the heater accepts the
+      change and is then overwritten. Useful reassurance; it does not add anything the rule's text
+      has not already said.
+    rules_out: [device_error]
+
+distractors:
+  - >
+    THE RULE'S NAME. "Temp LOW Heater On" tells the participant it only acts when the room is
+    cold, so on a hot day they dismiss it without opening it. The name is the intention; the
+    conditions are the behaviour. THIS IS THE PRINCIPAL TRAP — the answer is one tap away, behind
+    a label that says "not me".
+  - >
+    "Last triggered: just now" on the rule. It fires every minute, so this is ALWAYS "just now".
+    It is not evidence that something just happened, and not evidence that the participant caused
+    it.
+  - "The temperature sensor is misreading. It is not — it reports the room correctly, and that is itself evidence."
+  - "The radiator valve is stuck, or its battery is flat. The heater accepts every setpoint it is given."
+  - >
+    Hunting for a device or connection fault at all. There isn't one. Every device in this scenario
+    is healthy and reachable, and a participant can spend the whole session proving it.
+
+# ── THE PRESENTATION CONDITION ────────────────────────────────────────────────────────
+per_condition:
+  shared: >
+    THE DECISIVE EVIDENCE IS THE RULE'S OWN TEXT — its conditions, in All Rules — and All Rules is
+    IDENTICAL in both builds. This is the fairest scenario in the set: everything that settles it
+    lives in a view both conditions have, and no physical check is required at all.
+
+    The heater is read-only in the room view in both builds. Whichever they are in, the participant
+    must find the setpoint control to run the optional confirmation.
+  dashboard: >
+    Your Room = grouped cards; the Heater tile is in Appliances with a dial. Read the target in
+    All Devices > Heater; the temperature in All Devices > Temperature Sensor.
+    Rules: All Devices > tap the Heater row > Attached Rules; then All Rules > open the rule.
+  floor_map: >
+    Your Room = floor map; tap the Heater for its right-hand panel (target + attached rules).
+    Your Room > Rules (the dependency map) draws the heater with BOTH the presence sensor and the
+    temperature sensor feeding into the same rule node — which makes the rule's INPUTS visible as a
+    picture. That is a genuine advantage here: it shows at a glance that temperature is one of the
+    things this rule looks at, which is the thing a participant must open the rule to check.
+
+    Do NOT expect the dependency map to reveal the fault itself. It shows WHICH devices the rule
+    depends on, never HOW — the inverted "above 19C" is only in the rule's text, in All Rules. The
+    map can get them to the right card faster; it cannot read it for them.
+
+    The Connections view is irrelevant here (nothing is unreachable).
+
+expected_conclusion:
+  fault_class: rule_config
+
+  # THE SHAPE OF A CORRECT ANSWER. The participant cannot change a rule — the cards are read-only —
+  # and they are not meant to. Their job is to READ the implemented rule, notice it says the
+  # opposite of what it should, and hand that to support. So the answer is a REPORT, not a repair,
+  # and it has three parts: the symptom, what the rule actually says, and what they believe it
+  # ought to say.
+  technician_handoff: >
+    The room is already hot and the heater is on anyway. We looked into the rule's description, and
+    it is defined to heat when the temperature is ABOVE 19 degrees — we assume it should be BELOW
+    that. Nothing seems broken; the rule just says the opposite of what it should.
+
+grading:
+  # SPECIFIC. Bare "heater" / "rule" are the vocabulary of the domain and of the briefing; grade on
+  # the phrase a correct ANSWER contains — the inversion.
+  correct_root_cause_keywords:
+    - "above"
+    - "should be below"
+    - "temp low heater on"
+  # (1) the temperature reads above 19 and the system knows it   (2) the rule's condition says ABOVE
+  min_discriminating_checks: 2
+  known_false_conclusions:
+    - >
+      "The rule cannot be the cause, because it is called Temp LOW Heater On and the room is warm."
+      THE PRINCIPAL WRONG PATH — dismissing the rule on its NAME without opening it. Score this
+      separately: it is not a reasoning failure so much as a failure to check a label against its
+      contents, and it is exactly the confusion this scenario is built to produce.
+    - "The heater is broken / the radiator valve is stuck."
+    - "The temperature sensor is reporting the wrong value."
+    - "The heater has lost its connection." # (there is nothing unreachable in this scenario)
+    - >
+      "An automation keeps overwriting my setting every minute." TRUE, AND INCOMPLETE. The
+      re-application is the rig, not the fault — it would do the same thing if the threshold were
+      correct. Score as partial: they found the mechanism of the symptom, not the error. The error
+      is that the rule heats when it is warm.

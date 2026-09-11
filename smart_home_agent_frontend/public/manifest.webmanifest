@@ -1,0 +1,10 @@
+{
+  "name": "Sherlock.home — Smart-home diagnostics",
+  "short_name": "Sherlock.home",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#dcd6ca",
+  "theme_color": "#dcd6ca"
+}

@@ -1,0 +1,438 @@
+metadata:
+  environment_id: smart_hotel_studio
+  name: "OFFIS Smart Hotel Studio"
+  version: 4.0
+  description: >
+    Static physical environment model for the smart-home troubleshooting agent.
+    This file describes what exists in the lab, where devices are located, and
+    which basic technical dependencies they have.
+    Each device `id` is the single canonical identifier used across the whole
+    project (portal_entities, portal_rules, scenarios, and nodes.py). It matches
+    the Home Assistant entity short-name where possible.
+
+home:
+  name: "Smart Hotel Studio"
+
+space:
+  id: smart_hotel
+  name: "Smart Hotel"
+  type: studio
+  description: >
+    All devices are located in one shared smart-hotel lab space. Everything the
+    user sees and has access to is located in this one space. The space is
+    designed to look like a hotel room, with a bed, a TV, a desk, and a seating
+    area. The devices are distributed around the room.
+
+floorplan:
+  base_image_path: "smart_home_agent/assets/floorplans/floorMap_base.png"
+
+# `controls.physical` lists the ways a device can be operated by hand in the lab.
+# It is the only place this is recorded: whether a device can be operated from the
+# dashboard is derived from its `type` (see _room_control_for_device in tools.py),
+# so it is deliberately NOT repeated here.
+# A device with no `controls` key has no physical control at all — every device in
+# this file is annotated, so absence means "none", not "not checked yet".
+# `usable: false` means the control physically exists but must never be suggested
+# to a participant; always give the reason in `note`.
+devices:
+  - id: doorlight
+    name: "Door Light"
+    aliases:
+      - "DoorLight"
+      - "door light"
+      - "the light next to the door"
+      - "Wall-mounted light next to the door"
+      - "Wall-mounted light next to the TV"
+      - "The door light"
+    type: light
+    protocol: zigbee
+    hub: smart_hub
+    power: mains
+    controls:
+      physical:
+        - id: wall_switch
+          name: "Wall Switch"
+          location_hint: "on the wall, next to the door light"
+          note: "The same wall switch also switches the Window Light."
+    location_hint: "Between the door and the TV, on the wall"
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_doorLight.png"
+
+  - id: windowlight
+    name: "Window Light"
+    aliases:
+      - "WindowLight"
+      - "window light"
+      - "wall-mounted light next to the window"
+      - "Wall-mounted light next to the roller shutter"
+      - "wall-mounted light next to the curtains"
+    type: light
+    protocol: zigbee
+    hub: smart_hub
+    power: mains
+    controls:
+      physical:
+        - id: wall_switch
+          name: "Wall Switch"
+          location_hint: "on the wall, next to the door light"
+          note: "The same wall switch also switches the Door Light."
+    location_hint: "Between the two windows, on the wall"
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_windowLight.png"
+
+  - id: floorlamp
+    name: "Floor Lamp"
+    aliases:
+      - "FloorLamp"
+      - "Standing Lamp"
+      - "Smart Standing Lamp"
+      - "Floor light"
+    type: light
+    protocol: zigbee
+    hub: smart_hub
+    power: mains
+    controls:
+      physical:
+        - id: floor_lamp_button
+          name: "Button - Floor Lamp"
+          location_hint: "a small button near the floor lamp"
+    location_hint: "On the right side of the TV, next to the plants. Or next to the sofa. Or between the sofa and the TV."
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_floorLamp.png"
+
+  - id: bedlight_l
+    name: "Bedlight Left"
+    aliases:
+      - "BedLight_L"
+      - "Bedlight Left"
+      - "Left Bedlight"
+      - "Left bedside light"
+      - "Bedlight L"
+    type: light
+    protocol: zigbee
+    hub: smart_hub
+    power: mains
+    controls:
+      physical:
+        - id: bedlight_left_button
+          name: "Button - Bedside Left"
+          location_hint: "a small button on the left bedside"
+    location_hint: "left side of bed. Or between the bed and the Smart fan"
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_bedLightL.png"
+
+  - id: bedlight_r
+    name: "Bedlight Right"
+    aliases:
+      - "BedLight_R"
+      - "Bedlight Right"
+      - "Right Bedlight"
+      - "Right bedside light"
+      - "Bedlight R"
+      - "light next to the right side of the bed"
+    type: light
+    protocol: zigbee
+    hub: smart_hub
+    power: mains
+    controls:
+      physical:
+        - id: bedlight_right_button
+          name: "Button - Bedside Right"
+          location_hint: "a small button on the right bedside"
+    location_hint: "right side of bed. Or between the bed and the closet."
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_bedLightR.png"
+
+  - id: tv
+    name: "TV"
+    aliases:
+      - "Fire TV"
+      - "TV"
+      - "Amazon Fire TV"
+      - "Smart TV"
+      - "Television"
+    type: media
+    protocol: wifi
+    hub: null
+    power: mains
+    controls:
+      physical:
+        - id: tv_remote
+          name: "The TV's own remote control"
+          location_hint: "near the TV / on the TV unit"
+        - id: tv_power_button
+          name: "Power button on the TV itself"
+          location_hint: "on the TV set"
+    location_hint: "on the TV unit"
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_TV.png"
+
+  - id: socket_fan
+    name: "Fan Smart Plug"
+    aliases:
+      - "Smart Plug Fan"
+      - "Fan Smart Plug"
+      - "Fan plug"
+      - "Socket Fan"
+      - "Fan socket"
+    type: smart_plug
+    protocol: zigbee
+    hub: smart_hub
+    power: mains
+    location_hint: "behind the fan, on the left side, connected to the wall socket."
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_fanSocket.png"
+
+  - id: smartfan
+    name: "Smart Fan"
+    aliases:
+      - "Dreo Fan"
+      - "Smart Fan"
+      - "Dreo Smart Fan"
+      - "Fan"
+    type: fan
+    protocol: wifi
+    hub: null
+    power: mains
+    controls:
+      physical:
+        - id: fan_unit_buttons
+          name: "Buttons on the fan unit itself"
+          location_hint: "on the body of the Dreo fan"
+    location_hint: "on the left side of the bed, next to the left bedlight."
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_fan.png"
+
+  - id: heater
+    name: "Heater"
+    aliases:
+      - "Radiator Control"
+      - "Heater"
+      - "Thermostat Control"
+      - "Heating control"
+      - "Smart thermostat"
+      - "smart heater"
+    type: thermostat
+    protocol: zigbee
+    hub: smart_hub
+    controls:
+      physical:
+        - id: heater_manual_dial
+          name: "The manual dial/valve on the radiator"
+          location_hint: "on the radiator control itself"
+    location_hint: "below the window with a roller shutter. Behind the Sofa and the table."
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_heater.png"
+
+  - id: temperaturesensor
+    name: "Temperature Sensor"
+    aliases:
+      - "Temperature Sensor"
+      - "TemperatureSensor"
+      - "Temp Humid Sensor"
+      - "Room temperature sensor"
+      - "sensor for temperature"
+    type: sensor
+    protocol: zigbee
+    hub: smart_hub
+    location_hint: "bottom right corner"
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_temperatureSensor.png"
+
+  - id: presencesensor
+    name: "Presence Sensor"
+    aliases:
+      - "Occupancy Sensor"
+      - "presence sensor"
+      - "Presence detector"
+    type: sensor
+    protocol: zigbee
+    hub: smart_hub
+    power: mains
+    location_hint: "on the ceiling, in the middle of the room"
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_presenceSensor.png"
+
+  - id: doorsensor
+    name: "Door Sensor"
+    aliases:
+      - "Door Contact Sensor"
+      - "Door contact"
+      - "Door sensor"
+    type: sensor
+    protocol: zigbee
+    hub: smart_hub
+    location_hint: "left door frame, above the door frame, you may see a green light on it while the door is closed/open."
+    # NOTE: floorPlan_door-sensor.png does not exist yet in assets/floorplans;
+    # show_device_location degrades gracefully (exists=false) until it is added.
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_doorSensor.png"
+
+  - id: windowsensor
+    name: "Window Sensor"
+    aliases:
+      - "Window Contact Sensor"
+      - "Window contact"
+      - "Window sensor"
+      - "sensor_window"
+    type: sensor
+    protocol: zigbee
+    hub: smart_hub
+    location_hint: "above the left window frame, you may see a green light on it while the window is closed/open."
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_windowSensor.png"
+
+  - id: rollo
+    name: "Roller Shutter"
+    aliases:
+      - "Roller Shutter"
+      - "Rollo"
+      - "Electric blind"
+      - "Window shutter"
+      - "window cover"
+      - "cover"
+    type: actuator
+    protocol: zigbee
+    hub: smart_hub
+    controls:
+      physical:
+        - id: roller_shutter_button
+          name: "Button - Roller Shutter"
+          location_hint: "a small button near the left window"
+    location_hint: "installed above the left window"
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_rollerShutter.png"
+
+  - id: curtain
+    name: "Curtain"
+    aliases:
+      - "Curtain"
+      - "Motorized Curtains"
+      - "Smart Curtain"
+      - "curtain motor"
+    type: actuator
+    protocol: zigbee
+    hub: smart_hub
+    controls:
+      physical:
+        - id: curtain_manual_pull
+          name: "Pulling the curtain open/closed by hand"
+          location_hint: "at the curtain on the right window"
+          usable: false
+          note: >
+            Never ask the participant to move the curtain by hand. Moving the
+            curtain manually ruins the motor's calibration. The curtain is to be
+            operated only from the dashboard.
+    location_hint: "installed on the right window, it's a motor on the curtain rail."
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_curtains.png"
+
+# REMOVED 2026-07-13, not used in this study:
+#   - ir_blaster  (IR Blaster) — one-way/line-of-sight, never shown in the dashboard.
+#   - socket_tv   (TV Smart Plug) — hidden from the dashboard and floor map, so the
+#     participant cannot observe it. The TV is diagnosed directly instead.
+# Their floorplan images remain in assets/ but are no longer referenced.
+
+hubs:
+  - id: smart_hub
+    name: "Smart Hub"
+    aliases:
+      - "Zigbee Hub"
+      - "Gateway"
+      - "Bridge"
+    type: hub
+    protocol: zigbee
+    status: 'ask user to check if the hub is powered on and connected to the network to find out about the status'
+    power: mains
+    location_hint: "left wall cabinet"
+    floorplan_position_image_path: "smart_home_agent/assets/floorplans/floorMap_smartHub.png"
+
+network:
+  backend:
+    name: Home Assistant
+    role: Smart-home backend used by the management portal
+  wifi:
+    role: Network used by Wi-Fi devices and the tablet portal
+  zigbee:
+    role: Communication protocol used by hub-connected devices
+    hub_id: smart_hub
+
+# There are THREE clocks in this lab and they do not agree. Every time-gated rule in the
+# study (evening wind-down, morning routine, TV ambient, entrance light) is decided by the
+# first one — so getting this wrong makes the agent reason about the wrong "now".
+time_model:
+  # `label` is what gets rendered into the prompt; `entity` is for engineers and is
+  # deliberately NOT rendered. Putting "input_datetime.experiment_clock" in front of the
+  # model invites it to repeat the phrase to a participant, and the moment a participant
+  # hears "the experiment clock" they know the time is staged.
+  authoritative:
+    label: "the home's clock — the time shown on the dashboard"
+    entity: input_datetime.experiment_clock
+    what: >
+      The smart home's own time. This is the ONLY clock the automations are evaluated
+      against, and it is what the dashboard's clock pill (top bar) displays. When judging
+      whether a rule's time condition is currently true, this is "now" for the rule.
+  lab_clock:
+    label: "the clock in the room"
+    entity: input_datetime.participant_time
+    # Do NOT illustrate this with an example ("it is 1 o'clock and broad daylight" was here,
+    # and that is a scenario, not an illustration). Keep it abstract.
+    what: >
+      The physical clock on the wall. It is what the participant sees when they look up from
+      the tablet, and it is the time they are actually living in.
+  real_time:
+    label: "real time"
+    what: >
+      Actual wall-clock time — and the agent's own sense of "now". The automations never
+      consult it, and neither should you.
+
+  rules:
+    # Two DIFFERENT questions. Collapsing them is the classic way to get this wrong:
+    #
+    #   "Is the rule's condition currently satisfied?"  -> answer with the home's clock.
+    #   "Is the home's clock itself correct?"           -> the home cannot answer that at all.
+    #
+    # An earlier version of this block said real time "is never evidence about a rule". That
+    # is false, and dangerous: it makes a rule that fired at a legitimate-LOOKING time
+    # unfalsifiable, because the agent has been told to accept the home's clock and never
+    # cross-check it. A rule can be perfectly configured, fire exactly when its own condition
+    # says it should, and still be wrong — because what it believes about "now" is wrong.
+    - "To judge whether a rule's time CONDITION is met, use the home's clock (the dashboard). That is the clock the automations compare against — not real time, and not your own sense of 'now'."
+    - "But the home's clock is a VALUE THE SYSTEM HOLDS, not a fact about the world. Like any other reported value it tells you what the system believes, and what a system believes can be wrong. Never treat it as self-evidently correct just because the automations agree with it — they would agree with it whatever it said."
+    - "So 'the rule's condition was satisfied' and 'the rule was right to run' are separate findings. Establishing the first does NOT establish the second. Concluding that a rule behaved correctly because its own condition checked out is circular."
+    - "When what the home is doing does not match what the participant is actually experiencing in the room, that disagreement is itself evidence. Locate it — do not explain it away."
+    - "Time conditions are written as plain wall-times (a from/to window, or a moment). To evaluate one, have the participant read the time from the dashboard and compare it to the window."
+    - "Relative timestamps ('Last triggered 2 minutes ago') are elapsed durations, not clock readings. They are safe to take at face value."
+    - "Always write clock times in 12-hour format with AM/PM (e.g. 7:00 PM, 1:00 AM), never 24-hour (not 19:00 or 01:00). The dashboard clock and every rule's time window are shown to the participant that way, so a 24-hour time will not match anything they can read on screen."
+
+  # Naming, when SPEAKING TO THE PARTICIPANT.
+  #
+  # ONLY `say` and `prompt_instruction` are rendered into the agent's prompt.
+  # `never_say` and `why` are a note for us, and are deliberately NOT rendered — see below.
+  participant_facing_language:
+    say:
+      - "the time"
+      - "the clock on the dashboard"
+      - "the time shown at the top"
+
+    # What the model is actually told. Phrased as a positive rule, with no hint that the
+    # clock is anything other than a clock.
+    prompt_instruction: >
+      When you speak to the participant, call it simply the time, or the clock on the
+      dashboard. Do not give it any other name, and never attach a technical or internal
+      label to it.
+
+    # ── NOT RENDERED. Do not add these strings to prompt_instruction. ──────────────────
+    #
+    # This list used to be rendered verbatim, as "NEVER say: the experiment clock, the
+    # system time, the simulated/fake/lab clock..." — together with the reason, which said
+    # that naming the clock as artificial "reveals the apparatus" and "tells them they are
+    # in a study".
+    #
+    # Which told the MODEL all of it. To stop the agent revealing the apparatus, we handed
+    # the apparatus to the agent: that the clock is staged, and that this is an experiment.
+    # For SC-EVENING-WIND-DOWN — where the answer IS that the clock is wrong — that is close
+    # to giving the game away, and an agent could reach the right conclusion by reasoning
+    # about the study rather than by diagnosing the home. It also changes how a model
+    # behaves generally, once it knows it is being run in an experiment.
+    #
+    # A prohibition cannot be stated without naming the thing prohibited. So it is not stated
+    # to the model at all: the positive instruction above achieves the same behaviour, and
+    # says nothing.
+    never_say:
+      - "the experiment clock"
+      - "the system time"
+      - "the simulated / fake / lab clock"
+      - "the smart home's own time (as opposed to the real time)"
+    why: >
+      Naming the clock as artificial reveals the apparatus. To the participant it is simply
+      the time — the time the home shows, and the time it actually is in the room. Those two
+      can disagree, and noticing that they disagree is a legitimate finding they can reach on
+      their own. Telling them the clock is simulated does not help them notice it; it just
+      tells them they are in a study, and from that point they are reasoning about the
+      experiment rather than about the smart home.

@@ -1,0 +1,179 @@
+metadata:
+  portal_config_id: presentation_conditions
+  version: 1.0
+  purpose: >
+    Per-condition navigation guidance for the two visual builds of the smart-home
+    portal. The two builds are identical except for the Your Room tab, so this
+    config only differs there. The agent selects the block matching the session's
+    presentation_mode and phrases Your Room breadcrumbs loyally to what that build
+    actually shows. All Devices and All Rules are the same in both conditions.
+  source_files:
+  - Smart_Home_UI_Rework/src/App.tsx        # getCondition(): port 5172 -> 1, 5173 -> 2
+  - Smart_Home_UI_Rework/src/pages/YourRoom.tsx   # Condition1 (cards) vs Condition2 (floor map)
+  - Smart_Home_UI_Rework/src/components/SidebarRail.tsx  # Your Room / All Devices / All Rules
+
+# Navigation that is identical in both conditions (the shared left rail + tables).
+shared:
+  nav_rail:
+  - Your Room
+  - All Devices
+  - All Rules
+  all_devices:
+    label: All Devices
+    purpose: >
+      Read a device's exact State and Last-changed time from its table row. Columns are
+      Device / Category / State / Last changed - there is NO Parameters column and NO
+      Rules Attached count column. Tapping a row opens the device's card, which lists
+      its Attached Rules.
+  all_rules:
+    label: All Rules
+    purpose: Read a rule's Triggers, Conditions, Actions, Summary, and Last-triggered time.
+    sections:
+    - Automations - the 9 study rules the system runs on its own.
+    - Physical switches - the 6 wall switches/buttons in the room, under their own
+      header. Each row shows when that switch was last physically pressed.
+  physical_switches:
+    # The room's wall switches and buttons are automations, not devices.
+    read_only: >
+      A switch has NO on/off control anywhere in the dashboard - it is pressed in the
+      ROOM. The dashboard only reports whether the system registered the press. Never
+      ask a participant to "toggle the wall switch on the dashboard"; ask them to press
+      the real switch, then read its Last-pressed value.
+    where_they_appear: >
+      All Rules > Physical switches, in BOTH conditions. In the floor_map condition
+      they ALSO appear as their own small icon on the floor map, reporting only when
+      they were last pressed.
+    where_they_do_NOT_appear: >
+      Never in All Devices, and never in the dashboard condition's Your Room cards.
+      Do not send a participant to look for a switch in a device list - it is not there.
+    diagnostic_use: >
+      "Last triggered" on a switch is the one way to confirm the system actually saw
+      a physical press. If a participant presses the wall switch and the light does
+      not change, the switch's Last-triggered tells you whether the press registered
+      at all (switch/pairing problem) or registered but did not act (light/rule problem).
+  filter_pills:
+  - All
+  - Lights
+  - Appliances
+  - Media
+  - Sensors
+
+conditions:
+  dashboard:
+    id: dashboard
+    portal_port: 5172
+    display_name: Dashboard
+    room_view_name: the room cards
+    room_view_summary: >
+      Your Room shows the room's devices as grouped cards — Lights, Appliances,
+      TV & Media, and Sensors — each device a tile with its control inline
+      (a toggle, or a dial for brightness/position). There is no floor map, no
+      per-device side panel, and no connections or dependencies graph in this build.
+    operate_device: >
+      the dashboard > Your Room > find the device's tile in its group (Lights /
+      Appliances / TV & Media / Sensors) and use the tile control directly —
+      toggle it, or turn its dial to set intensity/position — then watch the real device.
+    inspect_exact_values: >
+      the dashboard > All Devices > find the device's row and read its State and
+      Last changed. (For its rules, tap the row to open its card and read
+      Attached Rules.)
+    device_label: >
+      Refer to each device by the name it carries in THIS build — its card / All Devices
+      label, which is the portal guide's portal_name field (e.g. the door sensor shows as
+      "Sensor_Door Door"). That is what the participant sees here.
+    connectivity_check: >
+      There is no network/connection graph in this build. Judge connectivity
+      functionally: have the participant operate the device from its Your Room
+      tile (and its physical switch if it has one) and report whether it responds;
+      cross-check related devices the same way, and read All Devices for an
+      unavailable/offline indicator.
+    dependency_check: >
+      There is no dependency graph in this build. Trace automations through
+      All Rules (open the relevant rule to read its Triggers / Conditions /
+      Actions) and through a device's Attached Rules list (tap its row in All Devices).
+    constraints:
+    - Never send the participant to a "Network", "Connections", or "Dependencies"
+      view, or to a floor map — none of those exist in this build.
+    - Do not mention a right-hand detail panel; controls live directly on each device tile.
+    - The room's wall switches and buttons are NOT shown anywhere in this build's
+      Your Room cards. To check a physical switch (e.g. whether a press registered),
+      send the participant to All Rules > Physical switches and read its Last triggered.
+
+  floor_map:
+    id: floor_map
+    portal_port: 5173
+    display_name: Floor Map
+    room_view_name: the floor map
+    room_view_summary: >
+      Your Room is a spatial floor map of the room with a device icon at each
+      device's real position, plus a small left sub-rail with three views:
+      Devices, Rules, and Connections. Selecting a device opens a detail panel on
+      the right (toggle, an intensity/position slider, its parameters, and its
+      attached rules).
+    subtabs:
+      devices: >
+        Your Room > Devices — the floor map; tap a device icon to open its right-hand
+        panel. The room's wall switches/buttons also appear here as their own small
+        icons. A switch icon never lights up (it is a switch, not the light it
+        controls) — tapping it reports only when it was last pressed.
+      rules: >
+        Your Room > Rules — the dependency map (orange dashed lines linking devices
+        that rules connect, with rule nodes); tapping a rule opens its
+        Triggers / Conditions / Actions on the right. This is distinct from the
+        top-level All Rules table. The physical switches appear here too, wired by an
+        edge to the device each one controls — but drawn as their own switch icon,
+        not as a rule/gear node.
+      connections: Your Room > Connections — solid lines from each device to the central Hub.
+    operate_device: >
+      the dashboard > Your Room > Devices > tap the device on the floor map, then
+      use its right-hand panel — toggle it, or drag its intensity/position slider —
+      and watch the real device.
+    # Lead with the panel they are ALREADY LOOKING AT. This used to lead with All Devices
+    # and mention the floor-map panel only in a trailing parenthesis, so the agent routinely
+    # sent participants to a different tab to re-read a value that was on screen in front of
+    # them. One of them said so, in as many words: "you could've known it at the first place
+    # ... because all states are mentioned there too."
+    inspect_exact_values: >
+      tap the device on the floor map (dashboard > Your Room > Devices) — the right-hand
+      panel that opens shows its State and its Attached Rules. Only send them to
+      dashboard > All Devices if they are not already on the floor map, or if you need to
+      compare several devices' States side by side.
+    device_label: >
+      On the floor map, each device carries its floor_map_label (the portal guide's
+      floor_map_label field, e.g. the door sensor is "Doorsensor") — use THAT name when
+      guiding on the floor map. Do NOT call it by its All Devices portal_name (e.g.
+      "Sensor_Door Door"); that longer name only appears in the All Devices table, and here
+      the value is readable by tapping the icon on the map they are already looking at, so
+      prefer that over sending them to All Devices to hunt a differently-named row.
+    # WARNING — THE CONNECTIONS VIEW IS STATIC. It is a diagram of how the room is WIRED, not
+    # a display of what is currently reachable. ConnectionsView.tsx draws one line from every
+    # device to the hub, unconditionally; the only thing that changes a line is the category
+    # filter. There is no availability, offline or reachability input anywhere in it. The line
+    # CANNOT break, no matter what is wrong with the device.
+    #
+    # This text used to read: "look at whether the device shows a solid connection line to the
+    # Hub. Use when the hub/network is suspected." That is the single most dangerous sentence
+    # in this config. It sends the participant to the one screen that looks like it answers
+    # "is this device reachable?", where they will always see a solid line, and conclude the
+    # connection is fine — on a scenario whose answer is that it is not. It manufactures a
+    # confident false negative on precisely the fault it appears designed to find.
+    connectivity_check: >
+      Do NOT judge reachability from Your Room > Connections. That view is a static wiring
+      diagram — it shows which devices are wired to the hub, and it draws every line solid no
+      matter what is actually wrong. A device that is completely unreachable still shows a
+      solid line to the hub there. It can tell you what DEPENDS on the hub; it can never tell
+      you what is currently reaching it.
+      Judge connectivity functionally instead: have the participant operate the device (and use
+      its physical control if it has one) and report whether it responds; cross-check a second,
+      clearly observable device the same way; and read All Devices for an unavailable/offline
+      indicator and for whether Last changed is still updating.
+    dependency_check: >
+      the dashboard > Your Room > Rules — the dependency map; find the device and
+      follow its dashed links / rule nodes to see which rules and devices depend on
+      it. Tap a rule node to read its Triggers / Conditions / Actions.
+    constraints:
+    - The Your Room sub-tab labelled "Rules" is the dependency map, not the
+      top-level All Rules table — refer to it as the floor map's dependency view
+      when guiding there.
+    - Device controls live in the right-hand panel that opens after tapping the
+      device on the floor map, not on the icon itself.

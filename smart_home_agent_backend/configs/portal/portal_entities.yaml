@@ -1,0 +1,467 @@
+metadata:
+  portal_config_id: smart_home_ui_rework_portal_entities
+  version: 4.0
+  source_files:
+  # The LIVE portal. The old experiment-ui/ContextualUI tree is SUPERSEDED.
+  - Smart_Home_UI_Rework/src/data/devices.ts        # DEVICES, RULE_LINKS, PS_RULES, SWITCH_LINKS
+  - Smart_Home_UI_Rework/src/pages/AllDevices.tsx
+  - Smart_Home_UI_Rework/src/pages/AllRules.tsx
+  - Smart_Home_UI_Rework/src/pages/FloorMapView.tsx
+  - Smart_Home_UI_Rework/src/pages/DependenciesView.tsx
+  - Smart_Home_UI_Rework/src/components/DeviceDetailPanel.tsx
+  - Smart_Home_UI_Rework/src/hooks/useDevices.ts
+  - Smart_Home_UI_Rework/src/hooks/useAutomation.ts
+  purpose: Map environment device IDs to portal/Home Assistant entity IDs and the UI evidence points where the participant can actually read them.
+  rules_attached_note: >
+    rules_attached / rules_attached_count reference the LIVE HA exp_* automations
+    (see portal_rules.yaml, from ha_study_automations.yaml 2026-06-25).
+    IMPORTANT: All Devices has NO "Rules Attached" column. A device's rules are shown
+    in its DETAIL CARD (tap the row) as an "Attached Rules" list. Treat the counts here
+    as expected values for the agent's own reasoning, not as something the participant
+    reads off a column.
+  portal_locations_note: >
+    "Your Room > Devices" (floor map), "Your Room > Rules" (dependency graph) and
+    "Your Room > Connections" exist ONLY in the floor_map presentation condition. In the
+    dashboard condition Your Room is grouped device cards with none of those views.
+    See portal_conditions.yaml before turning a portal_location into a breadcrumb.
+home_assistant:
+  state_source: /api/states
+  logbook_source: /api/logbook
+  websocket_url_in_source: ws://localhost:8123/api/websocket
+  subscribed_events:
+  - state_changed
+  - call_service
+  - automation_triggered
+  automation_config_sources:
+  - /api/states
+  - /api/config/automation/config/{automation_id}
+  - websocket config/automation/list and automation/config/{entityId}
+devices:
+  doorlight:
+    environment_name: Door Light
+    portal_name: DoorLight
+    home_assistant_entity_id: light.doorlight
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Connections
+    - Your Room > Rules
+    - All Rules
+    ui_category: lighting
+    floor_map_id: doorlight
+    # CORRECTED 2026-07-21. This read "Walllight", which is not what any build shows and not a
+    # name the participant can find anywhere. Both the floor map and the dashboard label this
+    # light "Door Light" (the floor map renders the device's name directly). The old value reached
+    # the agent through the get_portal_entity tool, which returns this whole block — and in a live
+    # session the agent duly told the participant to turn on "the wall light", a device that does
+    # not exist. The ONLY "wall light" in this room is the Wall Light Switch (see wall_switch
+    # below), the two-gang switch that drives this light and the Window Light. Never name a LIGHT
+    # "wall light".
+    floor_map_label: Door Light
+    state_display: raw Home Assistant light state
+    parameters: — unless light attributes are exposed
+    rules_attached_count: 2
+    rules_attached:
+    - automation.exp_entrance_door_light_on
+    - automation.ps_doorlighttoggle
+    # REWRITTEN 2026-07-13. This used to read: "If this light does not turn on, compare portal
+    # state, Rules Attached, and dependencies involving Presence Sensor, Door Sensor, and Wall
+    # Switch." Two problems. It named a "Rules Attached" COLUMN that no longer exists. And the
+    # leakage probe flagged it, correctly: it pairs the exact symptom of SC-ENTRANCE-DOOR-LIGHT-ON
+    # ("this light does not turn on") with a pointer straight at the door sensor — which is the
+    # answer to that scenario. A note that only makes sense because someone knew the fault is a
+    # hint, however factual each clause is on its own.
+    #
+    # Now stated as neutral structure: what this light IS, not what to suspect when it misbehaves.
+    diagnostic_note: >
+      Mains-powered Zigbee light, so it depends on the hub. It shares one two-gang wall switch
+      with the Window Light. The switch is read-only in the dashboard — it is pressed in the room,
+      and the dashboard only reports whether the system registered the press.
+  windowlight:
+    environment_name: Window Light
+    portal_name: WindowLight
+    home_assistant_entity_id: light.windowlight
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Connections
+    - Your Room > Rules
+    - All Rules
+    ui_category: lighting
+    floor_map_id: windowlight
+    # CORRECTED 2026-07-21 — same fix as doorlight above; see the note there.
+    floor_map_label: Window Light
+    state_display: raw Home Assistant light state
+    parameters: — unless light attributes are exposed
+    rules_attached_count: 1
+    rules_attached:
+    - automation.ps_windowlighttoggle
+    # "wall light" removed as a device name 2026-07-21 — it is not what either build calls these
+    # lights, and it fed the agent a name the participant could not find. Say "Door Light" and
+    # "Window Light".
+    diagnostic_note: >
+      Mains-powered Zigbee light, so it depends on the hub. It shares one two-gang wall switch
+      (the Wall Light Switch) with the Door Light, so it is a useful comparison against the Door
+      Light: it can show whether only one of the two lights is affected, or the switch mapping.
+  floorlamp:
+    environment_name: Floor Lamp
+    portal_name: FloorLamp
+    home_assistant_entity_id: light.floorlamp
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Connections
+    - Your Room > Rules
+    - All Rules
+    ui_category: lighting
+    floor_map_id: floorlamp
+    floor_map_label: Floor Lamp
+    state_display: raw Home Assistant light state
+    parameters: — unless light attributes are exposed
+    rules_attached_count: 2
+    rules_attached:
+    - automation.exp_evening_wind_down
+    - automation.ps_standlight_toggle
+    diagnostic_note: Good comparison device for checking whether the tablet and lighting controls are broadly working. (The exp_evening_wind_down light target is inferred; confirm against the rule.)
+  bedlight_l:
+    environment_name: Bedlight Left
+    portal_name: BedLight_L
+    home_assistant_entity_id: light.bedlight_l
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - All Rules
+    ui_category: lighting
+    floor_map_id: bedlight_l
+    floor_map_label: Bedlight
+    state_display: raw Home Assistant light state
+    parameters: — unless light attributes are exposed
+    rules_attached_count: 1
+    rules_attached:
+    - automation.ps_toggle_bedlight_left
+    diagnostic_note: Check with the associated bedside-left button automation if manual/button behavior is the issue. The TV ambient rule no longer drives this light (it now targets Bedlight R only).
+  bedlight_r:
+    environment_name: Bedlight Right
+    portal_name: BedLight_R
+    home_assistant_entity_id: light.bedlight_r
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - All Rules
+    ui_category: lighting
+    floor_map_id: bedlight_r
+    floor_map_label: Bedlight
+    state_display: raw Home Assistant light state
+    parameters: — unless light attributes are exposed
+    rules_attached_count: 2
+    rules_attached:
+    - automation.exp_tv_on_bedlight_ambient
+    - automation.ps_bedlight_right_toggle
+    diagnostic_note: Check with the associated bedside-right button automation if manual/button behavior is the issue; the TV ambient rule also drives it in the evening.
+  rollo:
+    environment_name: Roller Shutter
+    portal_name: Roller Shutter
+    home_assistant_entity_id: cover.rollo
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Connections
+    - Your Room > Rules
+    - All Rules
+    ui_category: climate
+    floor_map_id: rollo
+    floor_map_label: Roller Shutter
+    state_display: raw cover state
+    parameters: attributes.current_position displayed as {value}% open
+    rules_attached_count: 4
+    rules_attached:
+    - automation.exp_evening_wind_down
+    - automation.exp_morning_routine
+    - automation.exp_window_open_shutter_open
+    - automation.ps_rolloswitchcontrol   # the physical Roller Shutter button
+    diagnostic_note: For blind/shutter issues, inspect current_position, Dependencies, and rules involving Window Sensor, Presence Sensor, and the evening/morning schedules. Its physical button is listed in All Rules > Physical switches (not in All Devices).
+  curtain:
+    environment_name: Curtain
+    portal_name: Curtain
+    home_assistant_entity_id: cover.0x54ef441000c939e0
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Rules
+    - All Rules
+    ui_category: climate
+    floor_map_id: curtain
+    floor_map_label: Curtain
+    state_display: raw cover state
+    parameters: attributes.current_position displayed as {value}% open
+    rules_attached_count: 2
+    rules_attached:
+    - automation.exp_evening_wind_down
+    - automation.exp_morning_routine
+    # The Roller Shutter button (automation.ps_rolloswitchcontrol) was listed here
+    # under the bogus id ps_roller_shutter_switch. It drives the ROLLER SHUTTER,
+    # not the curtain, so it now sits on `rollo`. The curtain has no physical
+    # control the participant may use (moving it by hand ruins its calibration).
+    diagnostic_note: For curtain issues, inspect current_position and the evening/morning schedule rules. The curtain has no usable physical control - never ask the participant to move it by hand.
+  temperaturesensor:
+    environment_name: Temperature Sensor
+    portal_name: Temperature Sensor
+    home_assistant_entity_id: sensor.temp_humid_temperature
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Rules
+    - All Rules
+    ui_category: sensors
+    floor_map_id: temperaturesensor
+    floor_map_label: Temperaturesensor
+    state_display: raw sensor state
+    parameters: temperature value, displayed with °C if available
+    rules_attached_count: 1
+    rules_attached:
+    - automation.exp_temp_low_heater_on
+    diagnostic_note: Important for the heater/thermostat rule; user should report current temperature shown in Parameters or popup.
+  presencesensor:
+    environment_name: Presence Sensor
+    portal_name: PresenceSensor Presence
+    home_assistant_entity_id: binary_sensor.presencesensor_presence
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Rules
+    - All Rules
+    ui_category: sensors
+    floor_map_id: presencesensor
+    floor_map_label: Presencesensor
+    state_display:
+      'on': Present
+      'off': Away
+    parameters: —
+    rules_attached_count: 4
+    rules_attached:
+    - automation.exp_entrance_door_light_on
+    - automation.exp_movie_mode_tv_on_fan_off
+    - automation.exp_temp_low_heater_on
+    - automation.exp_window_open_shutter_open
+    diagnostic_note: Presence is a condition/trigger in multiple automations; a false no-presence state can block expected actions.
+  doorsensor:
+    environment_name: Door Sensor
+    portal_name: Sensor_Door Door
+    home_assistant_entity_id: binary_sensor.sensor_door_contact
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Rules
+    - All Rules
+    ui_category: sensors
+    floor_map_id: doorsensor
+    floor_map_label: Doorsensor
+    state_display:
+      'on': open
+      'off': close
+    parameters: —
+    rules_attached_count: 2
+    rules_attached:
+    - automation.exp_door_window_open_fan_off
+    - automation.exp_entrance_door_light_on
+    diagnostic_note: Door state is used in the fan-off and entrance-light automations; report whether All Devices shows open or close.
+  windowsensor:
+    environment_name: Window Sensor
+    portal_name: Window
+    home_assistant_entity_id: binary_sensor.sensor_window_contact
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Rules
+    - All Rules
+    ui_category: sensors
+    floor_map_id: windowsensor
+    floor_map_label: Windowsensor
+    state_display:
+      'on': open
+      'off': close
+    parameters: —
+    rules_attached_count: 3
+    rules_attached:
+    - automation.exp_door_window_open_fan_off
+    - automation.exp_window_closed_fan_on
+    - automation.exp_window_open_shutter_open
+    diagnostic_note: Window state drives fan and shutter behavior and should be compared with the physical window.
+  heater:
+    environment_name: Heater
+    portal_name: Heater
+    home_assistant_entity_id: climate.heater
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    ui_category: climate
+    floor_map_id: heater
+    floor_map_label: Heater
+    state_display: raw climate state
+    parameters: temperature attribute if available
+    rules_attached_count: 1
+    rules_attached:
+    - automation.exp_temp_low_heater_on
+    diagnostic_note: For heating complaints, inspect the climate state and temperature parameter, note the Temp Low Heater On rule sets it to 30C when presence is detected, and compare with the physical radiator/thermostat.
+  socket_fan:
+    environment_name: Fan Smart Plug
+    portal_name: Fan Smart Plug / Socket Fan
+    home_assistant_entity_id: switch.socket_fan
+    portal_locations:
+    - Your Room > Devices   # floor_map condition: a small "mini" icon on the map
+    ui_category: climate
+    floor_map_id: socket_fan
+    floor_map_label: Smart Plug
+    visibility_note: The useDevices filter excludes switch.socket* from All Devices, but the floor map contains smart plug ids.
+    diagnostic_note: If fan does not respond, checking the upstream fan socket/plug may be necessary even if it is not visible in All Devices; the Window Closed Fan On rule only turns the fan on when this plug is on.
+  # HIDDEN FROM THE PARTICIPANT 2026-07-13 (deliberate — these are lab apparatus, not
+  # part of the smart home the participant is meant to reason about):
+  #
+  #   socket_tv (TV Smart Plug) — removed from the dashboard and floor map. Never mention it.
+  #
+  #   ir_blaster (IR Blaster) — removed from the environment and never had a portal entity.
+  #     BUT NOTE: it is still physically in the loop. Every TV on/off goes
+  #       dashboard -> MQTT -> zigbee2mqtt -> Zigbee/hub -> IR Blaster -> infrared -> TV
+  #     because the Fire TV cannot be intercepted directly (it is Wi-Fi only). It is a
+  #     BATTERY-powered Zigbee device. This is why the TV is not a usable diagnostic
+  #     probe — see the `tv` entry below. Do not surface the blaster to the participant,
+  #     and do not let a scenario's root cause live in this path: the only component in
+  #     it is one they cannot see.
+  smartfan:
+    environment_name: Smart Fan
+    portal_name: SmartFan
+    home_assistant_entity_id: fan.smartfan
+    portal_locations:
+    - All Devices
+    - Your Room > Devices
+    - Your Room > Rules
+    - All Rules
+    ui_category: climate
+    floor_map_id: smartfan
+    floor_map_label: Fan
+    state_display: raw fan state
+    parameters: —
+    rules_attached_count: 3
+    rules_attached:
+    - automation.exp_door_window_open_fan_off
+    - automation.exp_morning_routine
+    - automation.exp_window_closed_fan_on
+    diagnostic_note: If the fan does not start/stop as expected, compare portal state with the physical fan and check the fan socket plus the fan-related automations (fan off on door+window open, fan on when window closes) and their conditions.
+  tv:
+    environment_name: TV
+    portal_name: TV
+    home_assistant_entity_id: binary_sensor.tv_status
+    portal_locations:
+    - Your Room > Devices
+    ui_category: media
+    floor_map_id: tv
+    floor_map_label: TV
+    state_display:
+      'on': 'on'
+      'off': 'off'
+    parameters: —
+    rules_attached_count: 3
+    rules_attached:
+    - automation.exp_morning_routine
+    - automation.exp_movie_mode_tv_on_fan_off
+    - automation.exp_tv_on_bedlight_ambient
+    diagnostic_note: >
+      TV status is read-only (binary_sensor.tv_status) and acts as a trigger for the
+      bedlight-ambient and movie-mode rules.
+
+      THE TV IS NOT A DIAGNOSTIC PROBE. Its command and its state travel different
+      paths: the on/off command goes out over infrared (via a hidden IR blaster) and is
+      never acknowledged, while its reported state comes back over Wi-Fi. So a TV that
+      does not respond is INCONCLUSIVE - it cannot distinguish "command never sent" from
+      "command sent, not received" - and it says nothing about the hub, the network, or
+      the TV itself. Never use it to test connectivity and never propose it as a
+      comparison device (see behavior comparison_device_policy); use one of the room's lights,
+      or the fan's smart plug. Because the command is a toggle, a TV whose reported state
+      has drifted will switch the OPPOSITE way - that is drift, not a fault.
+
+      Do NOT mention the TV's smart plug or the IR blaster: neither is visible to the
+      participant.
+# ==============================================================
+# PHYSICAL SWITCHES (the ps_* automations)
+#
+# These are NOT devices. Each one is a wall switch or button in the room whose
+# press fires a ps_* automation. Since 2026-07-13 the portal treats them as such:
+#
+#   - NOT listed in All Devices (they are not device rows).
+#   - NOT shown in the dashboard condition's Your Room card view at all.
+#   - Listed in All Rules under their own "Physical switches" section, separate
+#     from the 9 study automations, each with its own "Last triggered" time.
+#     Opening one shows a WHEN/THEN card labelled "Physical switch" (no conditions).
+#   - Shown on the floor map (floor_map condition) as their own small icon, which
+#     reports ONLY when the switch was last pressed. The icon never lights up:
+#     it is a switch, not the light it controls.
+#
+# ALL of them are READ-ONLY in the dashboard: there is no on/off control on a switch
+# anywhere in the portal. A switch is pressed in the ROOM. The dashboard's only job is
+# to report whether the system registered that press ("Last pressed"). So never tell a
+# participant to "toggle the wall switch on the dashboard" - tell them to press the
+# real switch and then read its Last-pressed value.
+#   - Shown in the floor map's dependency graph as a device-style node (NOT a rule
+#     /gear node) wired by an edge to the device it controls.
+#
+# So: when a participant should check a physical switch, send them to All Rules >
+# Physical switches (for the last press), or to the floor map icon in the
+# floor_map condition. Never to All Devices.
+# ==============================================================
+physical_switches:
+  wall_switch:
+    portal_name: Wall Light Switch
+    mqtt_topic: zigbee2mqtt/Wall Switch
+    description: >
+      One double wall switch next to the Door Light. The left gang toggles the
+      Door Light, the right gang toggles the Window Light. It is a single icon on
+      the floor map, but its card shows the two gangs as separate tiles, each with
+      its own last-pressed time.
+    gangs:
+    - home_assistant_entity_id: automation.ps_doorlighttoggle
+      rule_name: Wall Switch - Door Light
+      controls: doorlight
+    - home_assistant_entity_id: automation.ps_windowlighttoggle
+      rule_name: Wall Switch - Window Light
+      controls: windowlight
+  bedlight_left_button:
+    portal_name: Bedlight L Switch
+    home_assistant_entity_id: automation.ps_toggle_bedlight_left
+    rule_name: Bedlight L Switch
+    mqtt_topic: zigbee2mqtt/Button - Bedside Left
+    controls: bedlight_l
+  bedlight_right_button:
+    portal_name: Bedlight R Switch
+    home_assistant_entity_id: automation.ps_bedlight_right_toggle
+    rule_name: Bedlight R Switch
+    mqtt_topic: zigbee2mqtt/Button - Bedside Right
+    controls: bedlight_r
+  floor_lamp_button:
+    portal_name: Floor Lamp Switch
+    home_assistant_entity_id: automation.ps_standlight_toggle
+    rule_name: Floor Lamp Switch
+    mqtt_topic: zigbee2mqtt/Button - Floor Lamp
+    controls: floorlamp
+  roller_shutter_button:
+    portal_name: Roller Shutter Switch
+    home_assistant_entity_id: automation.ps_rolloswitchcontrol
+    rule_name: Roller Shutter Switch
+    mqtt_topic: zigbee2mqtt/Button - Roller Shutter
+    controls: rollo
+    note: >
+      NAMING CONFLICT RESOLVED 2026-07-13: automation.ps_rolloswitchcontrol is the
+      real HA entity. automation.ps_roller_shutter_switch never existed - it was a
+      stale id in the old AutomationCard.tsx, and it had leaked into the rework's
+      devices.ts, so this switch's "last triggered" always read "Never". Fixed.
+      This one is also hold-up/down/stop rather than on/off, and its automation only
+      responds to the real MQTT button.
+
+# REMOVED 2026-07-13 (v4.1) — loaded but read by nothing (scripts/check_config_wiring.py):
+#   state_display_rules      — superseded by the per-device `state_display` key below,
+#                              which IS read. The global map was a second, drifting copy.
+#   parameter_display_rules  — described how to render a "Parameters" panel. That panel no
+#                              longer exists: it was removed from the UI because it confused
+#                              participants. The config outlived the thing it described.
+#   portal_only_entities     — held `smart_fan` and `tv_status`, both of which are stale
+#                              duplicates of entries already in `devices` (smartfan, tv).
+#                              Two records of one device is how drift starts.

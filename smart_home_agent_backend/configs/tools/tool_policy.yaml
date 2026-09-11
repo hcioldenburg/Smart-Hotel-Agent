@@ -1,0 +1,169 @@
+metadata:
+  tool_policy_id: smart_home_diagnostic_tool_policy
+  version: 1.0
+  domain: smart_home_troubleshooting
+
+tool_policy:
+
+  general_rule: >
+    Always use tools to verify environment facts before making claims.
+    Do not rely solely on user descriptions when system state can be checked.
+
+  objectives:
+    - reduce hallucination
+    - enforce step-by-step diagnosis
+    - separate assumptions from verified facts
+    - guide user based on real system state
+
+  required_tools:
+    - list_devices
+    - get_device_info
+    - check_device_connectivity
+
+  optional_tools:
+    - check_hub_status
+    - show_device_location
+    - show_hub_location
+
+  # list_rooms can be added if an environment has multiple rooms later!
+
+  preferred_order:
+    - list_devices
+    - get_device_info
+    - check_device_connectivity
+    - check_hub_status
+    - show_device_location
+    - show_hub_location
+
+  tool_usage_rules:
+
+    list_devices:
+      when_to_use:
+        - device is not clearly identified
+        - user refers to device vaguely ("the light", "something in the room")
+      purpose:
+        - identify available devices
+        - disambiguate user intent
+      must_not:
+        - do not call if device is already clearly specified
+
+    get_device_info:
+      when_to_use:
+        - a specific device is mentioned
+        - before suggesting causes or actions
+      purpose:
+        - retrieve device properties (type, protocol, hub, power)
+        - support grounded reasoning
+      must:
+        - use before diagnosing device-related issues
+      must_not:
+        - do not assume device properties without calling this tool
+
+    check_device_connectivity:
+      when_to_use:
+        - device is not responding
+        - command appears successful but no effect occurs
+        - suspected connection issue
+      purpose:
+        - determine if device is reachable via network/hub
+      must:
+        - use before concluding device failure
+      must_not:
+        - do not skip this step when connectivity is relevant
+
+    check_hub_status:
+      when_to_use:
+        - multiple devices are not responding
+        - connectivity issues suspected
+        - device uses Zigbee or depends on hub
+      purpose:
+        - verify if hub is online and functioning
+      must_not:
+        - do not blame individual device before checking hub in multi-device failure
+
+    show_device_location:
+      when_to_use:
+        - user asks where a device is
+        - physical inspection is required
+        - user appears unsure about device location
+      purpose:
+        - guide user to device location visually (floor-map / photo)
+      constraints:
+        - use only when spatial guidance is helpful
+        - avoid unnecessary visual output
+
+    show_hub_location:
+      when_to_use:
+        - user needs to physically find or inspect the hub
+        - hub connectivity is suspected and the user is unsure where the hub is
+      purpose:
+        - guide user to the hub's location visually (floor-map / photo)
+      constraints:
+        - use only when locating the hub is actually needed
+        - avoid unnecessary visual output
+
+  decision_logic:
+
+    device_identification:
+      - if device is unclear:
+          action:
+            - ask one clarifying question
+            - OR call list_devices
+
+    single_device_issue:
+      - call get_device_info
+      - call check_device_connectivity
+      - if connectivity fails:
+          consider hub status
+
+    multi_device_issue:
+      - call check_hub_status first
+      - then check connectivity of one representative device
+
+    ui_vs_device_diagnosis:
+      - if command appears sent but no effect:
+          - verify device connectivity
+          - verify hub status
+          - consider control panel issues
+
+  fallback_strategy:
+    - if tools return incomplete data:
+        - ask user for clarification
+    - if tool results contradict user input:
+        - trust tool results and guide user to verify physically
+
+  error_handling:
+    - if tool fails:
+        - inform user briefly
+        - suggest alternative verification step
+    - if tool returns unknown device:
+        - ask user to clarify device name
+
+  safety_constraints:
+    - do not use tools to infer unsafe actions
+    - do not suggest electrical inspection based only on tool output
+    - always include safe physical checks when relevant
+
+  efficiency_constraints:
+    - do not call multiple tools unnecessarily in one step
+    - prefer minimal tool calls per reasoning step
+    - prioritize most informative tool first
+
+  integration_with_behavior:
+    - tool usage must follow step-by-step interaction style
+    - after each tool call:
+        - explain result in simple language
+        - propose next step
+        - ask user for confirmation
+
+  evaluation_hooks:
+    correct_usage_indicators:
+      - tools used before making claims
+      - correct tool chosen for scenario
+      - minimal redundant tool calls
+
+    incorrect_usage_indicators:
+      - skipping tool usage when required
+      - calling irrelevant tools
+      - overusing tools without reasoning
+      - making assumptions contradicting tool output

@@ -1,0 +1,334 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# CONFIRMED BY THE USER (2026-07-13). Complete — see resolved_questions at the bottom for why the
+# dead plug is a DEVICE fault and not a connection fault. That argument is the crux of the scenario.
+#
+# ── What Home Assistant says this rule does (after the 2026-07-13 rewrite) ──────
+#   trigger   : binary_sensor.sensor_window_contact  on -> off   (the window is CLOSED)
+#   condition : temperature is ABOVE 20°C
+#   action    : IF the fan's smart plug is on -> turn the Smart Fan on
+#
+#   THE RULE IS NOT MISCONFIGURED. It fires, its temperature condition is satisfied — and its
+#   action is guarded by "if the plug is on". The plug is NOT on, so the guard blocks it and the
+#   rule correctly does nothing. The rule is the victim, and it is the only one in the set defeated
+#   by its own (perfectly sensible) safety check.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-WINDOW-CLOSED-FAN-ON
+  name: "Fan does not start after closing the window"
+  status: draft
+  validated_on: null
+
+symptom:
+  # Verbatim participant briefing (user, 2026-07-13). It supplies BOTH halves of the expectation —
+  # the window was closed, and the room is still warm — which are the rule's two conditions. They
+  # need both to know what they were expecting.
+  participant_sees: >
+    You open the window for a while to let in some fresh air. After closing it again, the room
+    temperature still feels rather high, but the fan does not start.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not expected
+    to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+
+  # THE PLUG is the fault. The FAN is the complaint — and the fan is fine; it just has no power.
+  affected_devices:
+    - socket_fan
+    - smartfan          # a casualty, not a cause: dead because it is unpowered
+  unaffected_but_suspicious:
+    - windowsensor      # healthy: its light flashes, its state follows the window
+    - temperaturesensor # healthy: it reads the room correctly
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: device_error       # THE SMART PLUG is the broken device
+
+  mechanism: >
+    THE FAN'S SMART PLUG IS DEAD. Its status light is dark, it reads unavailable, it does not
+    interact with anything, and it is passing no power.
+
+    WHY THIS IS A DEVICE FAULT AND NOT A CONNECTION FAULT — the crux of the whole scenario, so be
+    sure of it before running.
+
+    The general principle (a plug's relay holds its last state, so losing the network cannot cut
+    the power) is DOMAIN KNOWLEDGE, stated once for the agent in device_knowledge.yaml >
+    device_type_knowledge.smart_plug.physical_indicator. Do not restate it here.
+
+    Applied to THIS scenario, which is the part that is secret: the fan has no power at all. Nothing
+    about lost connectivity can produce that, so the plug has failed at its one physical job. The
+    plug reading "unavailable" is a CONSEQUENCE of it being dead, not the fault itself — and the
+    fan being unpowered is the proof.
+
+    THE FAN IS NOT BROKEN. It is simply unpowered. With no mains supply it is dead in every
+    observable way — nothing from the dashboard, nothing from its own buttons, and it reads
+    unavailable — WHICH IS EXACTLY WHAT A DEAD FAN LOOKS LIKE. That is the trap.
+
+    And the rule is not broken either. It fires when the window closes, its temperature condition is
+    satisfied, and its last step checks "is the plug on?" before acting. The plug is not on, so the
+    rule correctly declines. Every component in the chain behaves impeccably except one — and that
+    one is the component nobody looks at.
+
+  where: switch.socket_fan
+  where_note: >
+    NOT fan.smartfan, and NOT automation.exp_window_closed_fan_on. The fan is a casualty; the rule
+    is a victim. A participant who concludes "the fan is broken" has correctly identified the device
+    that is not working and named the wrong cause — that is the principal near-miss, and it should
+    be scored as its own outcome.
+
+  involves_devices:
+    - socket_fan
+    - smartfan
+    - windowsensor
+    - temperaturesensor
+
+  reversible_by: >
+    Remove the interception on the smart plug and switch it back on. Confirm its status light is lit
+    and the fan regains power. EXPERIMENTER ACTION ONLY — the agent must never propose it.
+
+  setup_checklist:
+    - "The Window Closed Fan On automation is ENABLED."
+    - "The temperature reads ABOVE 20°C, so the rule's temperature condition is genuinely satisfied. Otherwise the participant is chasing a second, unintended fault."
+    - "The FAN SMART PLUG reads UNAVAILABLE, its status light is DARK, it does not respond to anything, and it is PASSING NO POWER. Verify by hand — the dead plug is the scenario."
+    - "The SMART FAN is therefore unpowered: it responds to the dashboard AND to its own buttons — NOT AT ALL. Confirm both."
+    - "THE FAN ITSELF IS HEALTHY. Unplug it, run it from a wall socket, confirm it works — then plug it back into the smart plug. If the fan is genuinely broken, this scenario has two faults and is void."
+    - "The WINDOW SENSOR is healthy: its indicator light flashes, and its state follows the window in the dashboard."
+    - "Trigger it: open the window, wait, close it. The rule's Last triggered must UPDATE — it must visibly run and achieve nothing."
+    - "Try to switch the plug on from the dashboard: nothing happens. It stays unavailable and its light stays dark."
+
+  teardown_checklist:
+    - "Remove the interception and switch the plug back on."
+    - "Confirm the plug's status light is lit and the fan has power."
+    - "With the room above 20°C, close the window and confirm the fan now starts."
+
+  hidden_apparatus:
+    - >
+      That the plug was intercepted rather than physically broken. To the participant it is simply a
+      smart plug that will not turn on — which is what a broken plug looks like, and is the fault
+      they are meant to find.
+
+  observable_in_dashboard: true
+  observable_note: >
+    THE DASHBOARD CANNOT SOLVE THIS ONE. It can carry the participant as far as the plug; it cannot
+    tell them whether the plug or the fan is at fault. For that they must leave the tablet — see
+    observable_in_room. What the dashboard does give them:
+
+    - Smart Fan: UNAVAILABLE. The obvious suspect, and the wrong one.
+    - Fan Smart Plug: UNAVAILABLE, and unresponsive to everything. NOTE: "unavailable" does not by
+      itself say device-or-connection — see resolved_questions #1. What settles it is that the fan
+      has no power, which a merely-unreachable plug could not cause.
+    - Window Sensor: healthy, and its state followed the window. The trigger fired.
+    - Temperature Sensor: above 20°C. The rule's condition is satisfied.
+    - All Rules > Window Closed Fan On: LAST TRIGGERED UPDATED — the rule RAN — and its action is
+      guarded by "if the Fan Smart Plug is on". It ran, checked the plug, found it off, and stopped.
+      THE RULE ITSELF NAMES THE COMPONENT TO EXAMINE.
+
+  observable_in_room: >
+    - THE SMART PLUG'S STATUS LIGHT IS DARK, and stays dark. (What a plug's status light and its
+      lack of a button mean in general is domain knowledge — device_knowledge.yaml >
+      device_type_knowledge.smart_plug.physical_indicator. Do not restate it here.) The plug is not
+      merely unreachable: it is doing nothing at all, and passing no current.
+    - THE SMART FAN responds to NOTHING: not the dashboard, not the buttons on its own body. It has
+      no power, and an unpowered fan is indistinguishable from a dead one.
+    - THE BYPASS TEST — the only thing that separates them. The procedure and the general rule
+      behind it (a device powered through a smart plug cannot be judged until the plug is bypassed)
+      are domain knowledge, stated once for the agent in device_knowledge.yaml >
+      devices.socket_fan.diagnostic_notes. Do not restate it here.
+      WHAT IS SECRET IS THE RESULT: on wall power the fan RUNS. The fan is fine; the plug is the
+      fault.
+    - The WINDOW SENSOR's indicator light flashes as the window opens and closes, and its state
+      follows in the dashboard. It is healthy.
+
+root_cause:
+  statement: >
+    The fan's smart plug has failed. Its status light is dark, it is unresponsive, and it is passing
+    no power — so the fan gets nothing, and the rule that would start it correctly refuses to run a
+    fan whose plug is off.
+  why_it_produces_symptom: >
+    The window closes, the room is above 20°C, and the rule fires exactly as it should. Its last
+    step is a safety check: only turn the fan on if its plug is on. The plug is not on. The rule
+    stops — correctly.
+
+    Meanwhile the fan, with no mains supply, is dead in every observable way: unavailable in the
+    dashboard, unresponsive at its own buttons. It looks precisely like a broken fan, and it is not
+    broken at all. The single component that has actually failed is the small plug behind it, which
+    has no button, cannot be tested by hand, and is the last thing anyone thinks to blame.
+
+evidence_path:
+  - step: 1
+    check: "Try the fan from the dashboard, and have them press the buttons on the fan itself."
+    observable: "It responds to neither. It reads UNAVAILABLE."
+    discriminates: >
+      The fan is neither reachable nor working locally. THIS IS WHERE THE OBVIOUS ANSWER IS WRONG:
+      "the fan is broken" fits everything seen so far, and a fan with no power looks exactly like
+      this. The question is not answered — it is only narrowed to "the fan, or the fan's power".
+    rules_out: [connection_error_on_fan]   # a merely unreachable fan would still work at its buttons
+
+  - step: 2
+    check: "Read the Fan Smart Plug's State, try to switch it on, and have them look at the plug itself."
+    observable: >
+      It reads UNAVAILABLE, it does not respond to anything, and its status light on the plug body
+      is DARK.
+    discriminates: >
+      THE PIVOT. The plug is the fan's power supply, and it is dead. The fan being dead is now fully
+      explained WITHOUT the fan being broken.
+
+      NOTE THIS IS NOT A CONNECTION FAULT, AND THE REASON IS NOT OBVIOUS: a plug that had merely
+      lost its network connection would still be PASSING POWER, and the fan would still run — you
+      just could not switch it. (General rule: device_knowledge.yaml >
+      device_type_knowledge.smart_plug.physical_indicator.) The fan has no power at all, so the
+      plug has failed physically. "Unavailable" here is a symptom of the plug being dead, not the
+      fault.
+    rules_out: [connection_error]
+
+  - step: 3
+    check: "Open the rule and read its actions — reachable from the fan or the window sensor."
+    observable: >
+      Last triggered UPDATED, so the rule ran. Its action is guarded: "if the Fan Smart Plug is on,
+      turn the fan on."
+    discriminates: >
+      The rule is not at fault — it did what it was designed to do, checked the plug, found it off,
+      and correctly declined to run an unpowered fan. AND IT NAMES THE PLUG: the rule points
+      directly at the component to examine.
+    rules_out: [rule_misconfiguration]
+
+  - step: 4
+    check: >
+      THE BYPASS. (Procedure: device_knowledge.yaml > devices.socket_fan.diagnostic_notes.)
+    observable: "Given wall power, the fan runs normally and becomes reachable again."
+    discriminates: >
+      THE FINDING, and nothing else in the room can produce it. Given power, the fan works
+      perfectly — so the fan is not broken. What is broken is the thing that was supposed to give it
+      power.
+
+      Without this check, "the fan is dead" and "the fan is unpowered" are indistinguishable: every
+      single observation is identical. This is the one thing that tells them apart.
+    rules_out: [device_error_on_fan]
+
+distractors:
+  - >
+    THE PRINCIPAL NEAR-MISS: "the fan is broken." It is the device in the complaint, it is
+    unavailable, and it responds to nothing at all — every visible sign points at it. It is perfectly
+    healthy. Everything the participant can see is equally consistent with "dead fan" and "unpowered
+    fan", and only the bypass test separates them. Stopping at "device error — the fan" is the RIGHT
+    FAULT CLASS with the WRONG DEVICE, and it is the outcome this scenario is designed to produce in
+    anyone who never leaves the tablet.
+  - >
+    CROSS-SCENARIO TRAP WITH SC-MOVIE-MODE-TV-ON-FAN-OFF. There the fan is ALSO unavailable — and
+    there the answer is a CONNECTION fault, because the fan still runs and still obeys its own
+    buttons. Here it obeys nothing. Same dashboard reading, opposite answers, and one press of the
+    fan's own buttons separates them:
+        buttons work        -> it has power and is alive -> connection fault   (movie mode)
+        buttons do nothing  -> no power, or dead         -> check the plug     (this scenario)
+    A participant who has done movie mode may generalise "fan unavailable = connection" and be
+    wrong. Watch for it in the transcripts.
+  - >
+    Blaming the rule. It ran (Last triggered updated) and did the right thing — it refused to switch
+    on a fan whose plug is off. A rule that correctly declines to act is not a broken rule.
+  - >
+    Blaming the window sensor. It worked: its light flashed, its state followed the window, and the
+    rule fired on it. Worth checking, and worth eliminating.
+  - >
+    Blaming the temperature sensor or its condition. The room IS above 20°C, the sensor says so, and
+    the condition is satisfied. A reasonable branch to close.
+  - >
+    Blaming the hub. The plug is Zigbee, so "the hub is down" is coherent — until you notice every
+    other Zigbee device in the room is fine.
+
+per_condition:
+  shared: >
+    THE DECISIVE CHECK IS PHYSICAL — unplugging the fan and giving it wall power — and it is
+    identical in both builds. It is on no screen. NEITHER CONDITION CAN SOLVE THIS FROM THE TABLET:
+    the dashboard can name the plug as a suspect, but it cannot prove the fan is healthy. Like the
+    sensor scenarios, this measures whether the participant will leave the tablet.
+
+    All Devices (the plug's state, the fan unavailable) and All Rules (the plug-guarded action) exist
+    in both builds.
+  dashboard: >
+    Your Room = grouped cards. The Smart Fan and the Fan Smart Plug sit side by side in the
+    Appliances group, which makes it comparatively easy to notice the plug is off while looking at
+    the fan.
+    Rules: All Devices > tap the Fan or the Window Sensor row > Attached Rules; then All Rules.
+  floor_map: >
+    Your Room = floor map; the fan's bubble is unlit, and tapping it shows UNAVAILABLE.
+
+    Your Room > Rules now draws the window sensor, the TEMPERATURE SENSOR and the FAN SMART PLUG all
+    feeding into the Window Closed Fan On node, with the fan as its target. The plug's role in the
+    rule becomes visible as a picture — the participant can SEE that the rule depends on the plug,
+    which is exactly the insight that redirects them from the fan to the plug.
+
+    (The temperature sensor and the plug were MISSING from that graph until 2026-07-13 — the rule
+    linked only the window sensor. check_rule_drift.py caught it.)
+
+    The Connections view will draw the plug wired to the hub with a solid line, as it does for
+    everything. It cannot express this fault.
+
+expected_conclusion:
+  fault_class: device_error
+  technician_handoff: >
+    The fan itself is fine — I unplugged it and ran it straight from a wall socket and it works
+    perfectly. The problem is its smart plug: it is switched off, its little light is dark, and it
+    will not turn back on from the tablet. So the fan never gets any power, and the rule that should
+    start it when I close the window will not run a fan whose plug is off. The smart plug needs
+    replacing.
+
+grading:
+  correct_root_cause_keywords:
+    - "smart plug"
+    - "no power"
+    - "fan works"
+  # (1) the fan responds to nothing AND the plug is off and will not switch on
+  # (2) the fan runs on wall power -> the fan is fine, the plug is not
+  min_discriminating_checks: 2
+  known_false_conclusions:
+    - >
+      "Device error — the Smart Fan is broken." THE PRINCIPAL NEAR-MISS, and the expected outcome for
+      anyone who never leaves the tablet. RIGHT FAULT CLASS, WRONG DEVICE. Score as a partial: they
+      correctly identified a device failure, correctly ruled out the rule and the sensors, and blamed
+      the casualty instead of the cause.
+    - >
+      "Connection error." Reachable two ways, and BOTH are wrong for the same underlying reason.
+      (i) Reading the FAN's "unavailable" as a connectivity problem — likely carried over from
+      SC-MOVIE-MODE-TV-ON-FAN-OFF, where that answer is correct. The fan's own buttons settle it:
+      they do nothing, so it is not merely unreachable, it is unpowered.
+      (ii) Reading the PLUG's "unavailable" as a connectivity problem. This is the subtler one, and
+      the more forgivable — but a plug that had only lost its network would still be passing power,
+      and the fan would still be running. It is not. Score this separately: the participant found
+      the right component and mislabelled why it failed.
+    - "The Window Closed Fan On rule is misconfigured, or did not run."
+    - "The window sensor failed to register the window closing."
+    - "The temperature condition was not met."
+    - "The hub is down."
+
+# ══ RESOLVED (user, 2026-07-13) ══════════════════════════════════════════════════════
+resolved_questions:
+  - id: 1
+    title: "Is the plug merely unreachable, or actually dead? — SETTLED: DEAD."
+    answer: >
+      The plug reads UNAVAILABLE, its status light is dark, and it does not interact with anything.
+      It is not simply unreachable from the dashboard; it is not doing anything at all.
+
+      I had proposed a Last-changed test to separate "unreachable" from "broken". IT IS NOT NEEDED,
+      and the real argument is cleaner and does not depend on timestamps:
+
+        A SMART PLUG THAT HAS ONLY LOST ITS NETWORK CONNECTION STILL PASSES POWER. Its relay holds
+        its last state. Comms loss makes a plug UNCONTROLLABLE, not DEAD. If the plug were merely
+        unreachable, the fan behind it would still be running — the participant just could not
+        switch it off.
+
+        The fan has NO POWER AT ALL. Nothing about lost connectivity can produce that. The plug has
+        failed at its one physical job, and that is a hardware failure regardless of what its
+        network status says.
+
+      SO THE FAN BEING UNPOWERED IS ITSELF THE PROOF THAT THIS IS A DEVICE FAULT. That is a sound,
+      teachable inference, and it is now stated once for the agent in device_knowledge.yaml >
+      device_type_knowledge.smart_plug.physical_indicator.
+
+      It also keeps the scenario set internally consistent: "unavailable" never classifies a fault
+      on its own, in any scenario. What classifies it is whether the device is still doing its job
+      locally — the sensor's light flashing, the fan's buttons working, the plug passing current.

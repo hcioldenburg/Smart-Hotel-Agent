@@ -1,0 +1,120 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# Copy this file to <scenario_id>.yaml and fill it in. Fields marked ASK_USER cannot be
+# derived from Home Assistant or from the configs — a physically injected fault (a pulled
+# Zigbee module, a taped sensor, a re-paired switch) leaves no trace in HA. Only the
+# person who set up the lab knows it.
+
+metadata:
+  scenario_id: ASK_USER            # e.g. SC-L2-S1. Must match the scenario file in configs/reasoning-model_scenarios/
+  name: ASK_USER
+  status: draft                    # draft -> validated (validated = a pilot run reproduced the symptom)
+  validated_on: null               # ISO date of the pilot run that confirmed it
+
+# ── What the participant is told, and what they can actually observe ────────────────
+symptom:
+  # The exact complaint the participant starts from. This IS allowed to be public — it
+  # is what they are given. It is also what goes in the scenario file's
+  # `context.scenario_description`, which is the ONLY scenario text the agent sees.
+  participant_sees: ASK_USER
+
+  # Environment device ids (configs/environment/Offis_smart_studio.yaml) that visibly
+  # misbehave. Ids only — the probe uses these to detect fault-shaped hints elsewhere.
+  affected_devices: []             # e.g. [smartfan]
+
+  # Devices that look involved but behave normally. Useful for grading: a participant who
+  # chases these is following a distractor, not the evidence.
+  unaffected_but_suspicious: []
+
+# ── What is actually broken (THE ANSWER) ───────────────────────────────────────────
+injected_fault:
+  # device_fault      — the device itself does not work (hardware, firmware, battery)
+  # connectivity      — the device works but cannot be reached (Zigbee/Wi-Fi/hub)
+  # rule_config       — an automation does the wrong thing, or the right thing at the wrong time
+  # rule_conflict     — two automations fight; each is individually correct
+  # sensor_state      — a sensor reports a wrong/stale value, and a rule believes it
+  # power             — the device lost power (participant CANNOT observe this; see power_assumption_policy)
+  # ui_mapping        — the dashboard is wired to the wrong entity; the system is fine
+  fault_class: ASK_USER
+
+  # Exactly what you changed to create the bug, concretely enough that someone else could
+  # reproduce it. "Disabled the rule" is not enough — say which rule, and how.
+  mechanism: ASK_USER
+
+  # Where it lives: an HA automation id, an entity_id, or a physical thing in the room.
+  where: ASK_USER
+
+  # Every environment device the fault MECHANISM touches — the rule's trigger devices, its
+  # condition devices, and its action targets. Not just the one that visibly misbehaves.
+  #
+  # This is what the leakage probe uses to catch the most common kind of leak, which never
+  # names the rule at all: "the fan is not working; a rule turns it off when the TV comes
+  # on" gives away the whole answer by putting the broken device and its cause in one
+  # sentence. The probe can only see that if it knows the TV is part of this fault.
+  involves_devices: []           # e.g. [smartfan, tv, presencesensor]
+
+  # How you put it back. Every session must start from a known-good room.
+  reversible_by: ASK_USER
+
+  # true  = visible somewhere in the participant's dashboard if they look in the right place
+  # false = only inferable from behaviour (e.g. a pulled power lead)
+  # If false, the evidence_path below MUST be purely functional — no portal value can show it.
+  observable_in_dashboard: ASK_USER
+
+# ── Why that produces this symptom ─────────────────────────────────────────────────
+root_cause:
+  statement: ASK_USER              # one plain sentence — the thing a correct diagnosis says
+  why_it_produces_symptom: ASK_USER
+
+# ── The checks that actually discriminate ──────────────────────────────────────────
+# Ordered, minimal. This is the yardstick an agent's transcript is scored against, and it
+# is the single most sensitive thing in this file — an agent that has seen it does not
+# need to diagnose. Keep each step to what the participant can genuinely observe.
+evidence_path: []
+# - step: 1
+#   check: "Toggle the fan from the room view and watch it."
+#   observable: "The fan responds."
+#   discriminates: "Device and connectivity are fine, so the cause is a rule."
+#   rules_out: [device_fault, connectivity]
+
+# Plausible-but-wrong paths participants are expected to chase. Not a scoring penalty —
+# it is what makes the scenario diagnostic rather than a lookup.
+distractors: []
+
+# ── The presentation condition ─────────────────────────────────────────────────────
+# The experimenter chooses the condition per session, and the two builds are NOT
+# interchangeable. Write evidence_path in terms of WHAT to observe, not which screen to open —
+# then record the navigation differences, and any condition-specific traps, here.
+#
+# BOTH builds have: All Devices (State, Last changed, a device's Attached Rules) and All Rules.
+# dashboard  (:5172): Your Room = grouped device cards, controls inline. NO floor map, NO
+#                     Connections view, NO dependency graph.
+# floor_map  (:5173): Your Room = floor map + sub-rail (Devices / Rules / Connections). Tapping
+#                     a device opens a right-hand panel (State, Attached Rules, controls).
+#
+# KNOWN TRAP, floor_map only: the CONNECTIONS view is a STATIC WIRING DIAGRAM. It draws a solid
+# line from every device to the hub, unconditionally — an unreachable device still shows a solid
+# line. It can never reveal a broken connection. If your scenario's answer is a connection fault,
+# this view will hand a floor_map participant a confident WRONG answer, and the dashboard
+# condition has no equivalent. That asymmetry is an instrument artefact, not a treatment effect.
+# Say so here, and watch for it in the transcripts.
+per_condition:
+  shared: ""
+  dashboard: ""
+  floor_map: ""
+
+# ── Grading ────────────────────────────────────────────────────────────────────────
+expected_conclusion:
+  fault_class: ASK_USER            # should equal injected_fault.fault_class
+  # What a correct final answer sounds like, in the register the behavior config asks for
+  # (plain sentence + what to tell a technician).
+  technician_handoff: ASK_USER
+
+grading:
+  # A transcript counts as a correct diagnosis if the final answer contains these ideas.
+  # Keep them as distinct concepts, not one long phrase.
+  correct_root_cause_keywords: []
+  # Fewest discriminating checks a competent diagnosis needs. Baseline for "efficiency".
+  min_discriminating_checks: null
+  # Named wrong answers to score separately — the ones you expect to see.
+  known_false_conclusions: []

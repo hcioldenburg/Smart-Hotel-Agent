@@ -1,0 +1,35 @@
+# THE PARTICIPANT BRIEFING CARD — read to (or by) the participant at the start of a session.
+#
+# THE AGENT NEVER SEES THIS FILE. As of 2026-07-14 the scenario is deliberately NOT rendered
+# into the agent's prompt: the agent is a GENERAL troubleshooter for the whole lab, working
+# any problem from its room knowledge (devices, both portal builds, rules, switches, the time
+# model) — never primed with which predefined case, if any, is running. The scenario id chosen
+# at the Start-a-case gate is a GRADING LABEL: it stamps the session so it can be scored
+# against configs/ground_truth/<id>.yaml afterwards, and does nothing else.
+#
+# This file is therefore for HUMANS: the canonical wording of what the participant is told.
+# Keep it in step with symptom.participant_sees in the matching ground-truth file. The ANSWER
+# — injected fault, root cause, evidence path, grading — lives in configs/ground_truth/SC-DOOR-WINDOW-OPEN-FAN-OFF.yaml,
+# which is never loaded. scripts/check_prompt_leakage.py enforces the boundary.
+
+metadata:
+  scenario_id: SC-DOOR-WINDOW-OPEN-FAN-OFF
+  name: "Fan does not switch off when the door and window are open"
+  source: lab_study_2026
+  version: 1.0
+
+context:
+  space: "Smart Hotel Studio"
+  # Verbatim participant briefing. The agent may hold this because the participant holds it —
+  # they will say it out loud in the first turn anyway. Note it states the participant's
+  # EXPECTATION ("the fan should turn off automatically") without naming any rule, device or
+  # cause, which is exactly the line to hold.
+  scenario_description: >
+    The fan is running in the smart hotel room. The participant opens the door and the window
+    to let in some fresh air. As they understand it, once the door and window have both been
+    open long enough, the fan should turn off automatically to save energy. However, even after
+    leaving them open, the fan keeps running.
+
+    Their task is to investigate and diagnose the cause of the malfunction, thinking out loud,
+    and to identify the error type — device, connection, or configuration — and describe
+    specifically where the observed error originates. They are not expected to fix anything.

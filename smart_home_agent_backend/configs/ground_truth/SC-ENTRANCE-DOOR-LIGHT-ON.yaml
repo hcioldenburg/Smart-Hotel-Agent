@@ -1,0 +1,319 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# CONFIRMED BY THE USER (2026-07-13).
+#
+# ═══ THE MIRROR OF SC-DOOR-WINDOW-OPEN-FAN-OFF ════════════════════════════════════════
+# Same rig, same class of fault, OPPOSITE answer. There, the window sensor presents as DEAD
+# (no light, no state). Here, the door sensor presents as ALIVE BUT UNREACHABLE (the light
+# flashes, the state never moves). The dashboard looks identical in both. The ONLY thing that
+# separates them is what the sensor's indicator light does — which means the participant has to
+# leave the tablet and go and look at the device.
+#
+# That is the whole point of the pair, and it is also its main risk: see cross_scenario_note.
+# ══════════════════════════════════════════════════════════════════════════════════════
+#
+# ── What Home Assistant says this rule does ──────────────────────────────────
+#   trigger   : binary_sensor.sensor_door_contact -> on          (id: door_open)
+#   trigger   : binary_sensor.presencesensor_presence -> off     (id: left)
+#   condition : time is in the evening window
+#   action    : if triggered by door_open AND presence is detected -> door light on, 50%
+#               if triggered by left                              -> door light off
+#
+#   THE RULE IS NOT MISCONFIGURED. Its door_open trigger simply never arrives, because the door
+#   sensor's reports never reach the system. The rule is the victim.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-ENTRANCE-DOOR-LIGHT-ON
+  name: "Door light does not turn on when entering in the evening"
+  status: draft
+  validated_on: null
+
+symptom:
+  # Participant briefing, VERBATIM (user, 2026-07-13). Mirrored into
+  # configs/reasoning-model_scenarios/SC-ENTRANCE-DOOR-LIGHT-ON.yaml.
+  participant_sees: >
+    It is the evening. You enter the room, and the door light does not turn on. From your
+    understanding, the door light should turn on automatically in the evening when the door
+    opens, and someone enters the room.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not
+    expected to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+
+  # The sensor is the fault. The LIGHT is the complaint — and the light is fine.
+  affected_devices:
+    - doorsensor
+  unaffected_but_suspicious:
+    - doorlight        # the visible complaint; healthy, and provably so at the wall switch
+    - presencesensor   # the rule's other input; working normally
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: connection_error
+
+  mechanism: >
+    The SAME rig as SC-DOOR-WINDOW-OPEN-FAN-OFF, applied to the DOOR sensor instead of the
+    window sensor — but wired to produce the CONNECTION presentation, not the device one.
+
+    1. ZIGBEE INTERCEPTION. The door sensor's Zigbee traffic is intercepted, so
+       binary_sensor.sensor_door_contact stops updating and holds whatever it last reported.
+       Opening and closing the door changes nothing in the system.
+
+    2. THE FAKE INDICATOR LIGHT, WIRED TO THE SENSOR'S PHYSICAL CONTACT. This is the one thing
+       that differs from the device scenario, and it is what makes this a connection error
+       rather than a device error. The light follows the sensor's own reed/contact, NOT its
+       entity state — so when the participant opens the door, the light on the sensor DOES come
+       on, exactly as it should, while the dashboard shows nothing at all.
+
+       The sensor is visibly registering the door. The system is simply not hearing it.
+
+    THE ONE-WIRE DIFFERENCE. This rig builds either scenario depending on what the fake light
+    follows:
+
+      light follows the ENTITY state   -> nothing lights, nothing updates -> DEVICE error
+                                          (SC-DOOR-WINDOW-OPEN-FAN-OFF)
+      light follows the PHYSICAL contact -> light flashes, state stays stale -> CONNECTION error
+                                          (THIS scenario)
+
+    Get that wire wrong and you will run a session that looks perfect and measures the opposite
+    scenario. Check it before every run — see setup_checklist.
+
+  where: binary_sensor.sensor_door_contact
+  where_note: >
+    NOT automation.exp_entrance_door_light_on. The rule is correct: its door_open trigger simply
+    never arrives. It is the victim, and a participant who "fixes" the rule has misdiagnosed.
+
+  involves_devices:
+    - doorsensor
+    - presencesensor
+    - doorlight
+
+  reversible_by: >
+    Remove the Zigbee interception on the door sensor. Then verify: open and close the door, and
+    confirm the state follows it again in the dashboard, and last-changed updates. Also unwind
+    the fake-light rig if it is not being reused by the next scenario.
+
+  setup_checklist:
+    - "BEFORE injecting: open and close the door. The indicator light flashes AND the dashboard state changes. Confirms the rig is healthy."
+    - "Inject: enable the Zigbee interception on the door sensor, and wire the fake light to the sensor's PHYSICAL CONTACT (not its entity state)."
+    - "AFTER injecting: open and close the door. THE LIGHT MUST STILL FLASH, and the dashboard state must NOT move. If the light stops flashing, you have built the DEVICE scenario by mistake — that is SC-DOOR-WINDOW-OPEN-FAN-OFF, and the correct answer inverts."
+    - "Door light: confirm it still works from the wall switch, and from the dashboard. It is the complaint, and it must be healthy."
+    - "Presence sensor: confirm it still reports presence. The rule needs it."
+    - "The dashboard clock is inside the evening window, so the rule's time condition is genuinely satisfied. Otherwise the participant is chasing a second, unintended fault."
+    - "The entrance-door-light automation is enabled."
+
+  teardown_checklist:
+    - "Remove the Zigbee interception."
+    - "Open and close the door: the state must follow it again, and last-changed must update."
+
+  # APPARATUS — hidden from the participant, exactly as with the TV's IR blaster. The agent must
+  # treat the light it can see as simply "the indicator light on the sensor", and must never
+  # learn that it is simulated or that Zigbee is being intercepted.
+  hidden_apparatus:
+    - "The fake indicator light mounted on the door sensor."
+    - "The Zigbee interceptor blocking the sensor's reports."
+    - "The sensor's real built-in LED, which blinks continuously and is diagnostically worthless."
+
+  observable_in_dashboard: true
+  observable_note: >
+    Visible in three places, and in all three what is observable is the FAILURE TO CHANGE, never
+    a value that looks wrong:
+
+    - Your Room > Door Sensor: its state reads open or closed. Open and close the door and the
+      value does not move.
+    - All Devices > Door Sensor: LAST CHANGED never updates. This is the cleanest single
+      signal — a contact sensor on a door that is being opened should have changed recently, and
+      it has not.
+    - Your Room > Rules (floor map): the intended rule exists and is attached to the door sensor,
+      and it is correctly written. Nothing there is wrong. That is itself informative: it pushes
+      the question upstream, to whether the rule's input is arriving at all.
+
+    None of these can distinguish a dead sensor from an unreachable one. Only the indicator light
+    on the sensor itself can do that, and it is not on the dashboard.
+
+  observable_in_room: >
+    The participant opens the door and looks at the door sensor. Its light blinks. The sensor is
+    registering the door perfectly well — so this is NOT a device error. That is the finding, and
+    it cannot be reached from the tablet.
+
+root_cause:
+  statement: >
+    The door sensor has lost its connection. It still detects the door — its indicator light
+    flashes every time — but its reports never reach the system, so the door's state never
+    updates and the automation that would turn the light on is never triggered.
+  why_it_produces_symptom: >
+    The rule turns the door light on when the door OPENS while someone is present, in the
+    evening. Two of those three are fine: presence is detected, and it is the evening. But the
+    door-open event never arrives, because the sensor's reports are not getting through. Without
+    its trigger the rule never runs, and the light never comes on.
+
+    Everything downstream is healthy — the light works, the rule is correct, the presence sensor
+    works. The failure is a message that was never delivered, and an undelivered message looks,
+    on a dashboard, exactly like an event that never happened.
+
+evidence_path:
+  # The efficient route (2 checks). This is the yardstick.
+  - step: 1
+    check: "Have the participant open and close the door, and watch the indicator light on the door sensor itself."
+    observable: "The light flashes each time."
+    discriminates: >
+      The sensor is alive and is registering the door. This is NOT a device error — which is the
+      single most likely wrong answer, and it is eliminated in one move.
+    rules_out: [device_error]
+  - step: 2
+    check: "With the door just opened, read the Door Sensor's State (and its Last changed) in the dashboard."
+    observable: "The state has not moved. Last changed has not updated."
+    discriminates: >
+      THE FINDING. The sensor sees the door; the system does not hear the sensor. A device that
+      is demonstrably working but cannot be reached is a connection fault. Stop here — nothing
+      further can change this conclusion.
+    rules_out: [rule_misconfiguration, doorlight_fault, presence_fault]
+
+  # The longer route participants actually take. Same answer, more turns — this is what the
+  # efficiency measure is measuring against.
+  - step: "alt-1"
+    check: "Check the door light itself: press the wall switch."
+    observable: "It turns on."
+    discriminates: "The light is healthy. The complaint is about the light, but the light is not the fault."
+    rules_out: [doorlight_fault]
+  - step: "alt-2"
+    check: "Open the entrance-door-light rule and read its triggers, conditions and actions."
+    observable: "It is correctly written, and it is attached to the door sensor."
+    discriminates: >
+      Not a configuration error. And it names the rule's inputs, which is the useful part:
+      the door sensor and the presence sensor.
+    rules_out: [rule_misconfiguration]
+  - step: "alt-3"
+    check: "Open and close the door, and read the Door Sensor's state and Last changed."
+    observable: "Neither moves."
+    discriminates: "The rule's trigger never arrives. Now the question is only WHY — dead sensor, or unreachable sensor?"
+    rules_out: []
+  - step: "alt-4"
+    check: "Look at the indicator light on the door sensor while opening the door."
+    observable: "It flashes."
+    discriminates: "Alive but unheard. Connection error."
+    rules_out: [device_error]
+
+distractors:
+  - >
+    THE BIG ONE — concluding DEVICE error. A sensor whose state never changes looks broken, and
+    from the dashboard alone it is indistinguishable from one. The only thing that separates them
+    is the light on the sensor, and the light is not on the tablet. A participant who never
+    leaves the dashboard cannot get this right, no matter how well they reason. That is the
+    behaviour this scenario exists to measure.
+  - >
+    Blaming the door light. It is the device in the complaint and the only thing visibly not
+    happening — and it works perfectly from the wall switch and from the dashboard.
+  - >
+    Blaming the rule. It is correctly written and is attached to the door sensor. A rule that
+    never runs is not necessarily a broken rule; it may simply never have been triggered.
+  - >
+    The time condition. The rule is evening-gated, so "is it actually evening?" is a reasonable
+    question — and the answer is yes: the home's clock is inside the window. It is a real branch
+    to eliminate, not a red herring, but it is not the fault.
+  - >
+    The presence sensor. The rule needs presence AND the door opening. Presence is working, so
+    the missing half is the door — but a participant can burn several turns confirming this.
+  - >
+    The hub. The door sensor is Zigbee, so "the hub is down" is a coherent hypothesis — until you
+    notice every OTHER Zigbee device in the room is working normally. Shared infrastructure that
+    is demonstrably fine cannot explain a single-device failure.
+
+expected_conclusion:
+  fault_class: connection_error
+  technician_handoff: >
+    The door light is fine and the automation is written correctly. The problem is the door
+    sensor: it still detects the door — its light flashes every time I open it — but its state
+    never updates in the system, so the automation is never triggered. The sensor seems to have
+    lost its connection.
+
+grading:
+  correct_root_cause_keywords:
+    - "connection"
+    - "door sensor"
+  # light flashes (alive) + state never updates (unreachable). Both are required — either one
+  # alone is ambiguous.
+  min_discriminating_checks: 2
+  known_false_conclusions:
+    - >
+      "Device error — the door sensor is broken." THE INTENDED NEAR-MISS, and the exact inverse
+      of the near-miss in SC-DOOR-WINDOW-OPEN-FAN-OFF. Score it separately: a participant who
+      lands here reasoned correctly from the dashboard and simply never went to look at the
+      device. That is a specific, interesting failure — not a careless one.
+    - "The door light is broken."
+    - "The entrance-door-light rule is misconfigured."
+    - "It is not evening yet, so the rule correctly did not run."
+    - "The hub is down."
+
+# ── THE PRESENTATION CONDITION ────────────────────────────────────────────────────────
+# The experimenter picks the condition per session (dashboard :5172 / floor_map :5173), and the
+# two builds are NOT interchangeable. The evidence_path above is written in terms of WHAT to
+# observe, not which screen to open, because the observations are identical — but the navigation
+# is not, and one condition contains an active trap.
+per_condition:
+  shared:
+    - "The decisive check is PHYSICAL — the indicator light on the sensor. It is identical in both conditions and is not on any screen. Neither build can solve this scenario from the tablet alone."
+    - "All Devices (State + LAST CHANGED) and All Rules exist in BOTH builds. Everything needed from the dashboard side is reachable in either."
+
+  dashboard:
+    room_view: "Your Room = grouped device cards (Lights / Appliances / TV & Media / Sensors), controls inline on each tile."
+    path_to_state: "All Devices > Door Sensor row > State + Last changed. (Sensors are read-only; there is no tile control to try.)"
+    path_to_rules: "All Devices > tap the Door Sensor row > Attached Rules. Then All Rules > open the rule."
+    notes: >
+      No floor map, no Connections view, no dependency graph. That is a LOSS of nothing that
+      matters here — and, as it happens, an accidental protection: this build cannot send the
+      participant to the Connections view, which is the one place they could be actively
+      misled (see below).
+
+  floor_map:
+    room_view: "Your Room = floor map; tap the sensor's icon to open its right-hand panel (State + Attached Rules)."
+    path_to_state: "Your Room > Devices > tap Door Sensor > right panel shows State. For LAST CHANGED, go to All Devices — the panel does not show it, and Last changed is the cleanest signal in this scenario."
+    path_to_rules: "Your Room > Rules (the dependency map) shows the rule attached to the door sensor, or All Devices > the sensor's card > Attached Rules."
+    connections_view_caveat: >
+      Your Room > CONNECTIONS exists only in this build, and it is BY DESIGN an informational
+      topology diagram: it shows that every device is wired to the hub. It is not a status
+      display and was never meant to be — see portal_conditions.floor_map.connectivity_check,
+      where the agent is told so once. Do not restate it here, and do not "fix" the view.
+
+      What it means for THIS scenario, which is the one place the design bites:
+
+      The agent has been told not to read reachability from it. A PARTICIPANT has not, and they
+      are free to explore. A solid line from the door sensor to the hub is easy to read as "the
+      connection is fine" — on the one scenario whose answer is that it is not.
+
+      SO WATCH FOR IT IN THE TRANSCRIPTS. If a floor_map participant concludes "the connection
+      looks fine, so it must be the device", check whether they visited Connections first. If
+      they did, that conclusion came from a view that cannot express the fault, and it is not the
+      same kind of error as reasoning badly from good evidence.
+
+      It also cuts one way in the condition comparison: only floor_map has this view, so only
+      floor_map participants can be led there. If floor_map underperforms on THIS scenario
+      specifically, check this before reading it as a finding about spatial presentation.
+
+# ── Running this pair together ────────────────────────────────────────────────────────
+cross_scenario_note: >
+  This scenario and SC-DOOR-WINDOW-OPEN-FAN-OFF are near mirror images: same rig, same class of
+  fault, same dashboard picture, opposite correct answers — separated only by whether the
+  sensor's light flashes.
+
+  So they interact, and the interaction is worth designing for rather than discovering:
+
+  - A participant who does one of them LEARNS THE TRICK. Whichever comes second is dramatically
+    easier, because "go and look at the light" is now the obvious move. If the same participant
+    sees both, counterbalance the order, and expect the second to be faster — that speed-up is
+    an order effect, not a treatment effect, and must not be read as one.
+
+  - Together they are a genuinely good pair, because they make the DEVICE-vs-CONNECTION
+    distinction real rather than nominal. Alone, either one lets a participant guess the right
+    label for the wrong reason. Together, guessing "device" or "connection" by habit is wrong
+    half the time, and only the physical check separates them.
+
+  - Both depend on the same fake-light rig, wired oppositely. Confirm the wiring before EVERY
+    session. Building the wrong one is a silent failure: the session runs perfectly and measures
+    the other scenario.

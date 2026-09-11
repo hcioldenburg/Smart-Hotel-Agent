@@ -1,0 +1,289 @@
+# GROUND TRUTH — never loaded into the agent. See README.md in this directory.
+#
+# CONFIRMED BY THE USER (2026-07-13). Complexity/difficulty level removed from the study
+# design, so there is no difficulty_level field here.
+#
+# ── What Home Assistant says this rule does ──────────────────────────────────
+#   enabled now : False
+#   trigger     : state change: binary_sensor.sensor_door_contact off -> on, held 20s
+#   condition   : state: binary_sensor.sensor_window_contact == on   (the window is open)
+#   action      : fan.turn_off -> fan.smartfan
+#
+#   THE RULE IS NOT MISCONFIGURED. It never fires because its CONDITION is never true: the
+#   window sensor is dead and still reporting whatever it last saw. The rule is the victim.
+# ─────────────────────────────────────────────────────────────────────────────
+
+metadata:
+  scenario_id: SC-DOOR-WINDOW-OPEN-FAN-OFF
+  name: "Door Window Open Fan Off"
+  status: draft
+  validated_on: null
+
+symptom:
+  # The participant briefing, VERBATIM (user, 2026-07-13). Mirrored into
+  # configs/reasoning-model_scenarios/SC-DOOR-WINDOW-OPEN-FAN-OFF.yaml, which is the only half
+  # of a scenario the agent ever sees. Keep the two in step.
+  participant_sees: >
+    The fan is running in the smart hotel room. You open the door and the window to let in some
+    fresh air. From your understanding, once the door and window have both been open long
+    enough, the fan should turn off automatically to save energy. However, even after leaving
+    them open, the fan keeps running.
+
+    Using the tablet interface, your task is to figure out what might be wrong. You're not
+    expected to fix anything, but please try to determine:
+
+    - Please think out loud, investigate, and diagnose the cause of the system malfunction.
+    - Please identify the error type (device, connection, or configuration error) and describe
+      specifically what is the origin of the observed error.
+
+    Let us know once you're ready.
+
+  affected_devices:
+    - windowsensor
+  unaffected_but_suspicious:
+    - smartfan     # the visible complaint — but it is healthy, and responds from the panel AND physically
+    - doorsensor   # the other half of the rule, and it works perfectly; that contrast is what makes this solvable
+
+injected_fault:
+  is_a_study_scenario: true
+  fault_class: device_error
+
+  mechanism: >
+    TWO parts, and the second one is a piece of apparatus the participant must never learn about.
+
+    1. ZIGBEE INTERCEPTION. The window sensor's Zigbee traffic is intercepted, so
+       binary_sensor.sensor_window_contact stops updating and holds whatever it last reported.
+       The physical sensor unit is NOT actually broken — it is a healthy sensor whose reports
+       are being blocked. The DEVICE-error presentation is simulated, not real.
+
+    2. A FAKE INDICATOR LIGHT. The sensor's own built-in Zigbee LED is useless as a diagnostic:
+       it blinks continuously regardless of what happens, so it can never tell a working sensor
+       from a dead one. So a second, fake indicator light was built and mounted ON the sensor,
+       positioned so the participant reads it as the sensor's own light.
+
+    WHAT THE FAKE LIGHT IS WIRED TO IS THE ENTIRE EXPERIMENT. The same rig produces either
+    scenario, and the light is the ONLY thing that distinguishes them:
+
+      DEVICE error (this scenario):
+        light follows the window sensor's ENTITY state -> the interception blocks the entity ->
+        the light never comes on either. Neither the light nor the dashboard responds. The
+        sensor presents as dead.
+
+      CONNECTION error (the sibling scenario):
+        light follows the sensor's own physical reed/contact -> the light DOES come on when the
+        window moves, while the entity stays stale. The sensor presents as alive but unreachable.
+
+    So the participant's ability to separate "device" from "connection" rests entirely on this
+    one artificial cue, and on their willingness to go and physically look at the sensor rather
+    than trust the dashboard. That is precisely the behaviour this scenario is designed to
+    measure — but it means the light rig is load-bearing, and if it desyncs mid-session the
+    participant is handed contradictory evidence and the session is unrecoverable.
+
+  # NOT automation.exp_door_window_open_fan_off — the rule is correct and is the victim here.
+  # The fault is upstream of it: the sensor's reports never arrive.
+  where: binary_sensor.sensor_window_contact  (+ the Zigbee interceptor, + the fake indicator light rig)
+
+  involves_devices:
+    - windowsensor
+    - doorsensor
+    - smartfan
+
+  reversible_by: >
+    Remove the Zigbee interception, and remove the fake indicator-light simulation. BOTH must be
+    undone to reset the room. Verify before the next session that the window sensor's state
+    follows the window again.
+
+  # ── Before the session starts. Confirm all of these BY EYE. ──────────────────────────
+  #
+  # This scenario rests on one artificial cue. There is no second, independent route to the
+  # answer: strip out the fake light and "device" and "connection" become indistinguishable to
+  # the participant, because the dashboard looks the same in both. That makes the light rig
+  # load-bearing in a way nothing else in the study is.
+  #
+  # The failure that would hurt most is a SILENT one. If the fake light desyncs mid-session, the
+  # participant is handed contradictory evidence — the dashboard says one thing, the light says
+  # another — and no amount of good reasoning recovers from that. Worse, the transcript would
+  # look like a participant who simply reasoned badly. You would have no way to tell the two
+  # apart after the fact. So the check has to happen BEFORE, not after.
+  setup_checklist:
+    - "Door sensor: open and close the door. Its (rigged) indicator light flashes, AND its state changes in the dashboard. Both."
+    - "Window sensor, BEFORE injecting: open and close the window. Light flashes, state changes. Confirms the rig is healthy to begin with."
+    - "Inject: enable the Zigbee interception, and wire the fake light to follow the window sensor's ENTITY state (not its physical contact)."
+    - "Window sensor, AFTER injecting: open and close the window. NEITHER the light NOR the dashboard state responds. If the light still flashes, you have built the CONNECTION scenario by mistake, not this one — the wiring of the fake light is the only difference between them."
+    - "Fan: responds from its panel and from its own buttons."
+    - "The door/window/fan automation is enabled."
+
+  teardown_checklist:
+    - "Remove the Zigbee interception."
+    - "Remove the fake-light simulation."
+    - "Open and close the window: the state must follow it again."
+
+  # APPARATUS — hidden from the participant, like the TV's IR blaster. The agent must treat the
+  # light it can see as simply "the indicator light on the sensor". It must never learn that the
+  # light is simulated, that the built-in LED is meaningless, or that Zigbee is being intercepted
+  # — all three would hand over the answer.
+  hidden_apparatus:
+    - "The fake indicator light mounted on the window sensor."
+    - "The Zigbee interceptor blocking the sensor's reports."
+    - "The sensor's real built-in LED, which blinks continuously and is diagnostically worthless."
+
+  observable_in_dashboard: true
+  observable_note: >
+    Visible in three places — and in all three, what is observable is the FAILURE TO CHANGE,
+    never a value that looks wrong:
+
+    - Your Room > Window Sensor: its state reads open or closed. Open and close the window and
+      the value does not move.
+    - All Devices > Window Sensor: LAST CHANGED never updates. This is the cleanest single
+      signal — a contact sensor on a window that is being opened should have changed recently,
+      and it has not.
+    - Your Room > Rules (floor map): the rule exists, is attached to the window sensor, and is
+      correctly written. Nothing there is wrong. That is itself informative: it pushes the
+      question upstream, to whether the rule's input is arriving at all.
+
+    None of these can distinguish a dead sensor from an unreachable one — the dashboard picture
+    is IDENTICAL to SC-ENTRANCE-DOOR-LIGHT-ON, which is a connection fault. Only the indicator
+    light on the sensor itself separates them, and it is not on the dashboard.
+
+  observable_in_room: >
+    The participant opens the window and looks at the sensor. Its light does NOT come on — while
+    the door sensor's does. The sensor is not registering the contact at all. That is the
+    finding, and it cannot be reached from the tablet.
+
+  # ── Running this pair together ────────────────────────────────────────────────────
+  # See cross_scenario_note in SC-ENTRANCE-DOOR-LIGHT-ON. In short: that scenario is this one's
+  # mirror — same rig, same dashboard picture, opposite answer, separated only by whether the
+  # sensor's light flashes. A participant who does one learns the trick, so counterbalance the
+  # order and do not read the second one's speed-up as a treatment effect.
+
+root_cause:
+  statement: >
+    The window sensor is physically faulty. It no longer registers the window opening or
+    closing, so the system never learns that the window is open, and the rule that would switch
+    the fan off never has its condition met.
+  why_it_produces_symptom: >
+    The rule needs two things: the door opening, and the window already being open. The door
+    sensor works, so the trigger fires. But the window sensor is dead and still reporting
+    whatever it last saw, so the condition is evaluated against a stale value and comes back
+    false. The rule silently does not run.
+
+    Nothing in the chain reports an error. The fan is healthy. The rule is correctly written.
+    The door sensor is fine. The only thing wrong is a sensor that has stopped sensing — and on
+    a dashboard, a sensor that has stopped sensing looks exactly like a sensor with nothing to
+    report.
+
+evidence_path:
+  - step: 1
+    check: "Operate the fan — from its panel, and by its own buttons in the room."
+    observable: "It responds to both."
+    discriminates: "The fan is healthy and reachable. It is the device in the complaint, but it is not the fault."
+    rules_out: [fan_device_fault, fan_connectivity, power]
+
+  - step: 2
+    check: "Open All Rules and read the Last triggered value of the door/window/fan rule."
+    observable: "It has not updated. The rule never ran."
+    discriminates: >
+      The fan was never told to switch off. So this is not a fan ignoring an instruction — it is
+      an instruction that was never issued. The question moves upstream, to the rule's inputs.
+    rules_out: [fan_ignoring_commands]
+
+  - step: 3
+    check: >
+      Have the participant physically open and close the DOOR while watching the Door Sensor's
+      state in the dashboard. Then physically open and close the WINDOW while watching the
+      Window Sensor's state.
+    observable: "The Door Sensor's state follows the door. The Window Sensor's state does not move at all."
+    discriminates: >
+      THE PIVOT. Two contact sensors, same hub, same protocol — one tracks reality and one does
+      not. That asymmetry rules out the hub, the network and the protocol in a single move: they
+      are shared, and they are demonstrably working. The problem is this one sensor.
+    rules_out: [hub_fault, network_fault, rule_misconfiguration]
+
+  - step: 4
+    check: >
+      Have the participant watch the small indicator light ON the window sensor itself as they
+      open and close the window, and compare it with the door sensor's, which does flash.
+    observable: "The window sensor's light does not come on at all."
+    discriminates: >
+      THE FINDING — the only check that separates the two answers still standing.
+
+      The general rule (light = alive, no light = dead; a frozen dashboard alone is ambiguous
+      between the two) is domain knowledge, not an answer: it is stated once, for the agent, in
+      device_knowledge.yaml > device_type_knowledge.sensor.physical_indicator. Do not restate it
+      here — the agent is meant to know it, and duplicating it in the ground truth makes the two
+      copies drift and trips the leakage probe's verbatim check.
+
+      What is SPECIFIC to this scenario, and secret: it is the WINDOW sensor whose light stays
+      dark, while the door sensor's flashes. That is the fault.
+    rules_out: [connection_error]
+
+distractors:
+  - >
+    THE FROZEN STATE THAT LOOKS CORRECT. If the window happens to be open and the dashboard
+    happens to say "open", everything looks fine and the participant moves on. But that is not a
+    reading — it is the last thing the sensor saw before it died. A reported state can only be
+    trusted once you have made it CHANGE. Close the window and watch: if the value does not
+    move, the value was never live.
+  - >
+    CONCLUDING "CONNECTION ERROR" FROM THE FROZEN STATE ALONE. This is the intended near-miss,
+    and it is a perfectly reasonable inference — a sensor that works but cannot be reached would
+    look identical in the dashboard. The only thing that tells the two apart is the indicator
+    light on the sensor itself, which is local to the device. Stopping at the dashboard is
+    stopping exactly one check short of the answer.
+  - >
+    Blaming the fan. It is the device in the complaint and the only one visibly misbehaving —
+    and it responds to everything. It is a symptom, not a cause.
+  - >
+    Blaming the rule. It is correctly written and doing exactly what it should: its condition is
+    genuinely false. A rule that does not run is not necessarily a broken rule.
+  - >
+    Blaming the hub or the network because "a sensor isn't reporting". The door sensor is on the
+    same hub and the same protocol and works perfectly. Shared infrastructure that is
+    demonstrably working cannot explain a single-device failure.
+
+# ── THE PRESENTATION CONDITION ────────────────────────────────────────────────────────
+# The experimenter picks the condition per session (dashboard :5172 / floor_map :5173). The
+# evidence_path is written as WHAT to observe, not which screen to open, because the
+# observations are the same in both builds — the navigation is not.
+per_condition:
+  shared: >
+    The decisive check is PHYSICAL (the sensor's indicator light) and is identical in both
+    builds. All Devices — State and LAST CHANGED — and All Rules exist in both. NEITHER BUILD CAN
+    SOLVE THIS FROM THE TABLET ALONE, which is the point: it measures whether they go and look at
+    the device.
+  dashboard: >
+    Your Room = grouped cards. No floor map, no Connections view. Read the sensor's State and
+    Last changed in All Devices; its Attached Rules from its card there.
+  floor_map: >
+    Your Room = floor map; tap the sensor for its panel (State + Attached Rules), but go to
+    All Devices for LAST CHANGED — the panel does not show it, and it is the cleanest dashboard
+    signal here.
+
+    The Connections view cannot show a broken link (see
+    portal_conditions.floor_map.connectivity_check). Here, where the correct answer is DEVICE
+    error, that at least does not push in the wrong direction. In the mirror scenario it does —
+    see SC-ENTRANCE-DOOR-LIGHT-ON.per_condition.floor_map.connections_view_caveat.
+
+expected_conclusion:
+  fault_class: device_error
+  technician_handoff: >
+    Please call support and tell them the window sensor's state does not change in the panel,
+    and the indicator light on the sensor does not come on when the window is opened or closed —
+    while the door sensor's does. The window sensor appears to be faulty.
+
+grading:
+  correct_root_cause_keywords:
+    - "device"
+    - "window sensor"
+  # window state does not follow the window; the door sensor's does; the indicator light never comes on
+  min_discriminating_checks: 3
+  known_false_conclusions:
+    - >
+      "Connection error." THE INTENDED NEAR-MISS — score this separately from the other wrong
+      answers. It is reached by stopping at the frozen dashboard state without checking the
+      indicator light or the physical contact. A participant who lands here reasoned correctly
+      from insufficient evidence, which is a different thing from reasoning badly, and the
+      distinction is worth having in the data.
+    - "The Smart Fan is broken."
+    - "The door/window/fan rule is misconfigured."
+    - "The hub is down / the network is down."

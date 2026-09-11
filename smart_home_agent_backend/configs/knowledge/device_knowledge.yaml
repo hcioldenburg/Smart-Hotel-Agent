@@ -1,0 +1,530 @@
+# =============================================================================
+# device_knowledge.yaml — the reasoning layer
+# =============================================================================
+# READ BY THE AGENT. `get_device_knowledge` returns devices[<id>] plus
+# device_type_knowledge[<type>] verbatim to the model. Everything written here is
+# spoken into the agent's context.
+#
+# THEREFORE: only DOMAIN-GENERAL knowledge goes in this file — physical topology,
+# protocol facts, what a device can and cannot do. Never anything that is only true
+# because of a fault you injected.
+#
+#   ALLOWED:  "The Smart Fan is Wi-Fi. It does not depend on the Zigbee hub."
+#   A LEAK:   "The fan turns off when the TV comes on."   <- that is a scenario answer.
+#
+# The test: would this sentence still be true if you had injected a DIFFERENT fault?
+# If no, it belongs in configs/ground_truth/, not here.
+# scripts/check_prompt_leakage.py enforces this.
+#
+# ── safe_user_checks was REMOVED (2026-07-13) ────────────────────────────────
+# It was empty for all 16 devices, and it was a third, drifting copy of data that is
+# already recorded properly in two places:
+#
+#   PHYSICAL affordances -> environment.devices[*].controls.physical
+#       Every device is annotated, with a location_hint and a `usable` flag. Absence
+#       of the key means "no physical control at all", not "not filled in yet". The
+#       Curtain carries usable: false — it must NEVER be moved by hand.
+#   DASHBOARD affordances -> derived from `type` by _room_control_for_device (tools.py)
+#
+# PHASE 8, the affordance/impossibility veto: read those two, NOT this file. A veto
+# built on a list that is empty for every device vetoes nothing, and would have missed
+# the exact bug it was written for (the agent suggesting the curtain's non-existent
+# button — pilot session 6b07649a).
+#
+# `unsafe_or_advanced_checks` DOES stay here: "never open the fixture" is real safety
+# knowledge and is recorded nowhere else.
+# =============================================================================
+
+metadata:
+  knowledge_id: offis_smart_studio_device_knowledge
+  version: 1.1
+  status: complete           # all devices + types filled (2026-07-14). No ASK_USER remaining.
+  domain: smart_home_troubleshooting
+  source_environment: Offis_smart_studio.yaml
+
+devices:
+  doorlight:
+    name: "Door Light"
+    type: light
+    unsafe_or_advanced_checks:
+      - "Opening the fixture, or inspecting/altering mains wiring."
+      - "Removing the wall switch plate."
+    common_symptoms:
+      - "It does not come on from the dashboard."
+      - "It does not come on when I press the wall switch."
+      - "It does not come on when an automation should have turned it on."
+    diagnostic_notes: >
+      Zigbee, so it depends on the hub. It shares ONE physical wall switch with the
+      Window Light — the switch has two gangs, one per light. That switch is read-only
+      in the dashboard: it is pressed in the room, and the dashboard only reports
+      whether the system registered the press. A press that registers but produces no
+      light points downstream (the lamp or a rule); a press that never registers points
+      at the switch itself.
+
+  windowlight:
+    name: "Window Light"
+    type: light
+    unsafe_or_advanced_checks:
+      - "Opening the fixture, or inspecting/altering mains wiring."
+      - "Removing the wall switch plate."
+    common_symptoms:
+      - "It does not come on from the dashboard."
+      - "It does not come on when I press the wall switch."
+      - "It does not come on when an automation should have turned it on."
+    diagnostic_notes: >
+      Zigbee, so it depends on the hub. Shares the same two-gang wall switch as the Door
+      Light — see that entry. Because the two lights share a switch but are separate
+      Zigbee devices, one can fail while the other works; that asymmetry is informative.
+
+  floorlamp:
+    name: "Floor Lamp"
+    type: light
+    unsafe_or_advanced_checks:
+      - "Opening the fixture, or inspecting/altering mains wiring."
+    common_symptoms:
+      - "It does not come on from the dashboard."
+      - "It does not come on when I press its button."
+      - "It does not come on when an automation should have turned it on."
+    diagnostic_notes: >
+      Zigbee, so it depends on the hub. Has its own small button next to it, so it can be
+      tested by hand independently of the dashboard — which makes it a good, unambiguous
+      device to cross-check when you need to tell "this one device" from "the whole system".
+
+  bedlight_l:
+    name: "Bedlight Left"
+    type: light
+    unsafe_or_advanced_checks:
+      - "Opening the fixture, or inspecting/altering mains wiring."
+    common_symptoms:
+      - "It does not come on from the dashboard."
+      - "It does not come on at the switch beside the bed."
+      - "It did not come on when the other one did."
+    diagnostic_notes: >
+      Zigbee, hub-dependent. Has its own bedside button. It and Bedlight Right are separate
+      devices with separate buttons despite being a visual pair — do not assume a fault in
+      one implies anything about the other, and do not treat them as a single light.
+
+  bedlight_r:
+    name: "Bedlight Right"
+    type: light
+    unsafe_or_advanced_checks:
+      - "Opening the fixture, or inspecting/altering mains wiring."
+    common_symptoms:
+      - "It does not come on from the dashboard."
+      - "It does not come on at the switch beside the bed."
+      - "It did not come on when the other one did."
+    diagnostic_notes: >
+      Zigbee, hub-dependent. Has its own bedside button. See Bedlight Left: they are a
+      visual pair but two independent devices.
+
+  tv:
+    name: "TV"
+    type: media
+    unsafe_or_advanced_checks:
+      - "Opening the TV, or touching its power supply."
+    common_symptoms:
+      - "It does not switch on or off."
+      - "Its state in the dashboard does not change."
+      - "It does not respond to its own remote."
+      - "It switched the opposite way to what I asked."
+      # NOTE: "the TV is not connected to the hub" is NOT a symptom of anything. The TV is on Wi-Fi:
+      # its media link and its reported state both come over the network, and its on/off command
+      # does not travel to it from the hub at all. Never reason about the TV and the hub together.
+    diagnostic_notes: >
+      THE TV IS NOT A DIAGNOSTIC PROBE, and it is the most counter-intuitive device in the room
+      because IT HAS THREE SEPARATE CHANNELS. Conflating them is the mistake to avoid:
+
+        1. ITS ON/OFF COMMAND — the one behind the control the participant presses. It goes out
+           one-way and is NEVER ACKNOWLEDGED. Nothing comes back to say it arrived.
+        2. ITS MEDIA CONTROL — a genuine two-way link used by automations to wake it, open a
+           stream and press play. This one IS acknowledged. It only works while the TV is awake.
+        3. ITS REPORTED STATE — on/off, which arrives back on yet another path.
+
+      SO A TV THAT DOES NOT RESPOND IS INCONCLUSIVE. Its on/off command is unacknowledged, so a
+      non-response cannot distinguish "the command was never sent" from "it was sent and not
+      received", and the participant cannot see the difference either. It proves nothing about the
+      TV, nothing about the hub, and nothing about the network. Never use it to test connectivity,
+      and never offer it as a comparison device — use one of the room's lights.
+
+      The control is also a TOGGLE, so if its reported state has drifted it switches the opposite
+      way to what was asked. That is drift, not a fault.
+
+      TWO THINGS THAT ARE NORMAL AND MUST NOT BE READ AS FAULTS:
+        - The TV's media link drops out whenever the TV is off or asleep. That is how it is
+          supposed to behave. It is also not shown to the participant.
+        - An automation that turns the TV on and then immediately sends it a media command waits a
+          few seconds in between, because the media link needs the TV awake before it exists.
+
+      DO NOT EXPLAIN ANY OF THIS TO THE PARTICIPANT. They see a TV. How its commands travel is
+      apparatus, not part of the problem they were given. Simply do not use the TV to test
+      anything, and do not narrate why.
+
+  socket_fan:
+    name: "Fan Smart Plug"
+    type: smart_plug
+    unsafe_or_advanced_checks:
+      - "Opening the plug, or anything involving the wall socket itself."
+    common_symptoms:
+      - "It reads off and will not switch on."
+      - "Its status light is dark."
+    diagnostic_notes: >
+      Zigbee, hub-dependent. It has NO BUTTON — it cannot be switched by hand, only from the
+      dashboard. It does have a small STATUS LIGHT on the plug body: lit when it is on and
+      supplying power.
+
+      IT IS UPSTREAM OF THE SMART FAN. The fan draws its mains power through this plug, so:
+
+        the fan responds to its own buttons  -> it HAS power -> the plug is on and working.
+                                                Do not check the plug; it is already answered.
+        the fan responds to NOTHING — not the dashboard, not its own buttons -> DO NOT CONCLUDE
+                                                THE FAN IS BROKEN. A fan with no power behaves
+                                                exactly like a dead fan. Check its power first.
+
+      THE BYPASS TEST — the only way to separate a broken plug from a broken fan. Have the
+      participant unplug the fan from the smart plug and plug it straight into a wall socket:
+
+        the fan then works  -> the fan is fine, and the PLUG is the fault.
+        the fan still does not work -> the fan itself is the fault.
+
+      Without this test the two are indistinguishable: everything you can see says only "the fan
+      is not running". It is safe, reversible, and it is a CHECK, not a repair — have them plug
+      the fan back into the smart plug afterwards.
+
+  smartfan:
+    name: "Smart Fan"
+    type: fan
+    unsafe_or_advanced_checks:
+      - "Removing the fan's guard or reaching inside it."
+    common_symptoms:
+      - "It is not running."
+      - "It does not respond to the buttons on the fan itself."
+      - "It reads unavailable in the dashboard."
+      - "It stops on its own."
+    diagnostic_notes: >
+      Wi-Fi, NOT Zigbee — it has no hub. The hub is therefore irrelevant to it: a hub
+      problem cannot explain a fan problem, and the fan cannot be used to test the hub.
+      If it is unreachable from the dashboard, look at Wi-Fi, not at the hub. It has buttons
+      on the unit itself, so it can always be tested by hand. It also draws its power through
+      the Fan Smart Plug — see that entry.
+
+  heater:
+    name: "Heater"
+    type: thermostat
+    unsafe_or_advanced_checks:
+      - "Bleeding the radiator, or removing the valve head."
+      - "Anything involving the heating circuit or hot water."
+    common_symptoms:
+      - "The room is not reaching the temperature I set."
+      - "The target temperature goes back to something else."
+      - "It does not respond from the dashboard."
+      - "The dial on the radiator shows nothing."
+    diagnostic_notes: >
+      Zigbee, hub-dependent. It is read-only in the room view — it cannot be toggled like a light.
+      The value that matters for a temperature complaint is the TARGET temperature, not on/off: a
+      heater reporting "on" tells you it is applying power, not what it is aiming for. See
+      device_type_knowledge.thermostat.
+
+      IT HAS A DIAL ON THE RADIATOR ITSELF, and the dial BOTH shows the current target AND can be
+      turned by hand to change it. So the heater's target can be read and set locally, without the
+      tablet — which makes it one of the few devices where the system's idea of a value and the
+      device's own idea of it can be compared directly.
+
+  temperaturesensor:
+    name: "Temperature Sensor"
+    type: sensor
+    unsafe_or_advanced_checks: []
+    common_symptoms:
+      - "The reading looks wrong for the room."
+      - "The reading never changes."
+      - "The dashboard and the display in the room disagree."
+    diagnostic_notes: >
+      Zigbee, hub-dependent, and READ-ONLY — it reports, it cannot be operated, and there is
+      nothing for a participant to press. It reports the room temperature, which is what any
+      temperature-gated rule is compared against.
+
+      IT HAS A PHYSICAL DISPLAY, on the unit itself, in the room (near the Window Light), showing
+      the room temperature. That makes it the ONE sensor whose reading can be checked without the
+      tablet: have the participant compare the number on the display with the number in the
+      dashboard. If the two disagree, the system's idea of the temperature is not the room's.
+
+  presencesensor:
+    name: "Presence Sensor"
+    type: sensor
+    unsafe_or_advanced_checks: []
+    common_symptoms:
+      - "It says someone is here when the room is empty."
+      - "It says nobody is here while I am standing in the room."
+      - "It reads unavailable."
+    diagnostic_notes: >
+      Zigbee, hub-dependent, read-only. On the ceiling, in the middle of the room. It gates
+      several rules, so its state can decide whether a rule runs at all — and a participant
+      standing still, or out of the room, changes it. Worth remembering that the participant
+      is themselves an input to this sensor.
+
+  doorsensor:
+    name: "Door Sensor"
+    type: sensor
+    unsafe_or_advanced_checks: []
+    common_symptoms:
+      - "Its state does not change when I open or close the door."
+      - "It reads unavailable."
+    diagnostic_notes: >
+      Zigbee, hub-dependent, read-only contact sensor. Reports open/closed. The participant
+      can change its state directly, by opening or closing the door — which makes it one of
+      the few sensors whose reported value can be checked against physical reality on the
+      spot: have them open the door and watch whether the reported state follows.
+
+  windowsensor:
+    name: "Window Sensor"
+    type: sensor
+    unsafe_or_advanced_checks: []
+    common_symptoms:
+      - "Its state does not change when I open or close the window."
+      - "It reads unavailable."
+    diagnostic_notes: >
+      Zigbee, hub-dependent, read-only contact sensor. Reports open/closed. As with the Door
+      Sensor, the participant can change it physically and watch whether the reported value
+      follows — a stale or stuck reading is then directly observable rather than inferred.
+
+  rollo:
+    name: "Roller Shutter"
+    type: actuator
+    unsafe_or_advanced_checks:
+      - "Forcing the shutter by hand, or touching the motor housing."
+    common_symptoms:
+      - "It does not move."
+      - "It does not move from its wall button either."
+      - "It reads unavailable."
+      - "It moved only part of the way."
+    diagnostic_notes: >
+      Zigbee, hub-dependent. A cover, so its meaningful state is a POSITION (percent open),
+      not on/off — "it is open" is not a value, "42% open" is. It has its own button by the
+      window, so it can be operated by hand. It moves slowly: give it time before concluding
+      it did not respond.
+
+  curtain:
+    name: "Curtain"
+    type: actuator
+    unsafe_or_advanced_checks:
+      - "NEVER ask the participant to pull the curtain open or closed by hand. Moving it manually ruins the motor's calibration. It is operated from the dashboard only."
+    common_symptoms:
+      - "It does not move."
+      - "The position control moves, but the curtain does not."
+      - "Its reported position never changes."
+    diagnostic_notes: >
+      Zigbee, hub-dependent. A cover: its meaningful state is a position, not on/off. It has
+      NO usable physical control — the curtain can physically be pulled by hand, but doing so
+      destroys the motor's calibration, so it must never be suggested. This is the one device
+      in the room with no by-hand fallback: if it cannot be driven from the dashboard, there
+      is no manual cross-check available for it. It moves slowly; give it time.
+
+  smart_hub:
+    name: "Smart Hub"
+    type: hub
+    unsafe_or_advanced_checks:
+      - "Opening the hub, or unplugging/repowering it."
+    common_symptoms:
+      - "Several devices stopped responding at once."
+    diagnostic_notes: >
+      The Zigbee gateway. Which devices depend on it is the whole point: the lights, both
+      covers, the heater, all four sensors and the fan's smart plug are Zigbee and go through
+      it. The Smart Fan and the TV are Wi-Fi and DO NOT. So a hub fault cannot explain a fan
+      or TV problem, and a fan or TV problem is not evidence about the hub. If several Zigbee
+      devices fail together while the Wi-Fi ones are fine, the hub is a good hypothesis. If a
+      Wi-Fi device is involved, it is not.
+
+# -----------------------------------------------------------------------------
+# device_type_knowledge: shared per type. `primary_diagnostic_state_field` marks WHICH
+# state attribute actually matters, so on/off is not mistaken for sufficient evidence.
+#
+# ir_controller was REMOVED (2026-07-13): the IR blaster is not part of this study and is
+# deliberately hidden from the participant. It is apparatus, not a device.
+# -----------------------------------------------------------------------------
+device_type_knowledge:
+  light:
+    primary_diagnostic_state_field: on_off
+    state_field_notes: >
+      On/off is the whole story for a light: it is either lit or it is not, and the
+      participant can see which. That makes lights the cleanest devices in the room to
+      test with, and the best comparison devices.
+    unsafe_or_advanced_checks:
+      - "Opening a fixture, or any contact with mains wiring."
+    common_symptoms:
+      - "It does not come on from the dashboard."
+      - "It does not come on at its switch."
+      - "It does not come on when an automation should have turned it on."
+
+  smart_plug:
+    primary_diagnostic_state_field: on_off
+    state_field_notes: >
+      On/off, and it is UPSTREAM of whatever it powers. A plug that is off makes the device behind
+      it look completely dead — so always establish what a plug feeds before concluding the thing
+      it feeds is broken.
+    physical_indicator: >
+      A smart plug has a small STATUS LIGHT on its body and NO BUTTON: it cannot be switched by
+      hand, only from the dashboard, so that light is the only thing it can tell you directly.
+
+      LOSING ITS NETWORK CONNECTION CANNOT CUT THE POWER. This is the fact that decides device
+      versus connection for a plug, and it is easy to miss. A plug's relay HOLDS ITS LAST STATE:
+      if it was passing power and then falls off the network, it keeps passing power — you simply
+      cannot change it any more. Comms loss makes a plug UNCONTROLLABLE; it does not make it
+      DEAD.
+
+      So:
+        the device behind the plug has NO POWER AT ALL  ->  the plug has failed PHYSICALLY. It is
+              not doing its one job, and no amount of lost connectivity can explain that. A DEVICE
+              fault, even if the plug also reads unavailable.
+        the plug is unreachable but the device behind it still has power  ->  the plug is alive and
+              simply cannot be commanded. A CONNECTION fault.
+
+      "Unavailable" on a plug therefore does NOT settle anything by itself. Ask what happened to
+      the POWER.
+    unsafe_or_advanced_checks:
+      - "Anything involving the wall socket itself."
+    common_symptoms:
+      - "It reads off and will not switch on."
+      - "Its status light is dark."
+      - "The device it powers is dead."
+
+  media:
+    primary_diagnostic_state_field: on_off
+    state_field_notes: >
+      Reported on/off only. For the TV specifically this value is NOT evidence that a command
+      was received: its state and its command travel different paths. See the TV's entry — it
+      must never be used as a probe or a comparison device.
+    unsafe_or_advanced_checks: []
+    common_symptoms:
+      - "It does not switch on or off."
+      - "Its reported state does not match the screen."
+
+  fan:
+    primary_diagnostic_state_field: on_off
+    state_field_notes: >
+      On/off, and plainly visible and audible in the room, so a fan is an unambiguous device
+      to test with. Note its power comes through a smart plug.
+    unsafe_or_advanced_checks:
+      - "Reaching inside the fan guard."
+    common_symptoms:
+      - "It is not running."
+      - "It does not respond to its own buttons."
+      - "It stops on its own."
+
+  thermostat:
+    primary_diagnostic_state_field: target_temperature
+    state_field_notes: >
+      The device's on/off state reflects heating power only. For temperature complaints
+      ("too warm", "too cold") the diagnostically relevant value is target_temperature, a
+      separate attribute. Do not treat on/off as sufficient evidence for a temperature
+      complaint: a heater can be correctly "on" and still be aiming at the wrong number.
+    unsafe_or_advanced_checks:
+      - "Bleeding a radiator, removing a valve head, or anything involving the heating circuit."
+    common_symptoms:
+      - "The room will not reach the temperature I set."
+      - "The target goes back to something else."
+      - "The dial shows nothing."
+
+  sensor:
+    primary_diagnostic_state_field: reported_value
+    state_field_notes: >
+      A sensor's only output is the value it reports — open/closed for the contact sensors,
+      presence/no-presence, a temperature in degrees. Sensors are READ-ONLY: they cannot be
+      operated, and there is nothing for a participant to press, so never ask them to "toggle"
+      or "try" a sensor. What you CAN do is change the world and see whether the sensor
+      follows (open the door, and watch the door sensor).
+
+      A sensor is an INPUT to rules. When a rule did not run, the sensor it depends on is the
+      first thing that can explain it — the rule can be perfectly written and still never fire
+      because its condition was never true.
+
+      A REPORTED VALUE IS NOT EVIDENCE THE SENSOR IS ALIVE. A dead sensor keeps reporting the
+      last thing it saw, and a frozen value looks exactly like a correct one — if the window
+      is open and the dashboard says "open", nothing looks wrong. You can only trust a sensor
+      reading once you have made it CHANGE. Have the participant open or close the contact and
+      watch whether the value follows. A value that will not move was never live.
+    physical_indicator: >
+      THE DOOR AND WINDOW CONTACT SENSORS HAVE A SMALL INDICATOR LIGHT ON THE UNIT, which comes
+      on when the contact opens or closes. It is driven by the sensor locally, before anything
+      is transmitted — which makes it the ONLY way to tell a dead sensor from an unreachable
+      one, because in the dashboard those two look identical:
+
+        light comes on, dashboard does NOT update  -> the sensor is alive; the link to it is
+                                                      broken. A CONNECTION problem.
+        light does not come on at all              -> the sensor is not registering the contact
+                                                      at all. A DEVICE problem.
+        dashboard state simply never changes       -> AMBIGUOUS between those two on its own.
+                                                      Do not conclude from this alone; go and
+                                                      look at the light.
+
+      So when a contact sensor is suspected, do not stop at the dashboard. Ask the participant
+      to work the door or window by hand and watch the light on the sensor itself. It costs one
+      turn and it is the difference between the right answer and a very reasonable wrong one.
+    unsafe_or_advanced_checks: []
+    common_symptoms:
+      - "Its state does not change when the thing it watches changes."
+      - "Its reading looks wrong."
+      - "It reads unavailable."
+
+  actuator:
+    primary_diagnostic_state_field: current_position
+    state_field_notes: >
+      Covers (the roller shutter, the curtain) have a POSITION, not an on/off. "Open" is not
+      a value; "42% open" is. A cover still traveling, or resting where it was told to hold, has
+      not failed — judge it by whether its reported position RESPONDS to a command at all, not by
+      where it ends up. They also move slowly — wait before concluding no response.
+    physical_indicator: >
+      A COVER REPORTS ITS OWN POSITION BACK. This is what stands in for an indicator light on a
+      device that has none, and it is how you tell a broken motor from an unreachable one — the
+      two look identical in the room, because in both cases nothing moves.
+
+        the reported position UPDATES (Last changed moves) but the cover does not physically
+        move   -> the system IS reaching the device and the device IS answering. The failure is
+                  mechanical. A DEVICE problem.
+
+        the reported position NEVER updates, and Last changed goes stale   -> the system is not
+                  hearing the device at all. A motor that was merely broken would still be
+                  reachable and would still report. A CONNECTION problem.
+
+      THE CONTROL YOU DRAG IS YOUR REQUEST, NOT THE DEVICE'S ANSWER. It shows your requested value
+      immediately, then corrects itself a second or two later to whatever the device actually
+      reports. So:
+
+        AFTER COMMANDING A COVER, WAIT AND WATCH THE CONTROL. If it SNAPS BACK to its previous
+        value, the device did not accept the command — its reported position never changed. That
+        snap-back is the dashboard telling you the command went nowhere, and it is easy to miss:
+        for the first second or two the control shows the value you asked for, and a participant
+        who looks away in that window will walk off believing it worked.
+
+      Never treat the control's own position as evidence. Read the reported State and Last changed
+      in All Devices — that is the device speaking.
+
+      BUT A REPORTED STATE IS ONLY THE DEVICE SPEAKING IF IT IS FRESH. A reading whose Last changed
+      has gone stale is not what the device is doing now — it is the last thing it said before it
+      stopped talking, and the system will go on displaying it indefinitely. Its VALUE is therefore
+      meaningless: it is simply wherever the device happened to be when it went quiet, so it may read
+      open or closed with equal likelihood, and neither tells you anything about where it is now.
+      NEVER read such a value as the cover's current position, and never report it back as though the
+      command had taken effect.
+
+      This is also why a stale reading can flatly CONTRADICT the room — the dashboard showing a cover
+      open while you can see it is shut, or the reverse. That contradiction is not a glitch to
+      explain away and not a reason to doubt the participant: the room is the truth, the reading is
+      out of date, and the gap between them is itself the finding. Always read a State together with
+      its Last changed, and say which of the two you are relying on.
+    unsafe_or_advanced_checks:
+      - "Forcing a cover by hand. For the Curtain this is absolutely forbidden: it destroys the motor's calibration, permanently. Never ask a participant to pull, push or move the curtain, not even to test it."
+    common_symptoms:
+      - "It does not move."
+      - "The control moves, but the cover does not."
+      - "Its reported position never changes."
+      - "It moved only part of the way."
+
+  hub:
+    primary_diagnostic_state_field: online_status
+    state_field_notes: >
+      The hub serves ZIGBEE devices only. Wi-Fi devices (the Smart Fan, the TV) do not pass
+      through it at all. So "is the hub up?" is only a meaningful question for a Zigbee device,
+      and a hub hypothesis is only supported when the devices failing together are all Zigbee.
+    unsafe_or_advanced_checks:
+      - "Opening, unplugging or repowering the hub."
+    common_symptoms:
+      - "Several devices stopped responding at once."

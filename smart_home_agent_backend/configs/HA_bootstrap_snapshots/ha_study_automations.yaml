@@ -1,0 +1,511 @@
+metadata:
+  generated_at: '2026-07-13T23:42:00.742020'
+  ha_url: http://localhost:8123
+  study_tag: Psanei_Thesis_Experiment
+  total_study_automations: 9
+  websocket_used: true
+  note: 'Only automations in STUDY_AUTOMATION_IDS (tag: Psanei_Thesis_Experiment).
+    trigger_summary, condition_summary, action_summary are human-readable. raw_config
+    contains the full HA automation config as returned by WebSocket.'
+automations:
+  automation.exp_door_window_open_fan_off:
+    friendly_name: Door Window Open Fan Off
+    entity_id: automation.exp_door_window_open_fan_off
+    tag: Psanei_Thesis_Experiment
+    enabled: false
+    last_triggered: '2026-07-09T11:20:06.934575+00:00'
+    trigger_summary:
+    - 'state change: binary_sensor.sensor_door_contact from=off to=on for={''hours'':
+      0, ''minutes'': 0, ''seconds'': 20}'
+    condition_summary:
+    - 'state: binary_sensor.sensor_window_contact == on'
+    action_summary:
+    - fan.turn_off → fan.smartfan
+    entities_involved:
+    - binary_sensor.sensor_door_contact
+    - binary_sensor.sensor_window_contact
+    - fan.smartfan
+    - fan.turn_off
+    raw_config:
+      config:
+        id: '1782233199842'
+        alias: Door Window Open Fan Off
+        description: ''
+        triggers:
+        - trigger: state
+          entity_id:
+          - binary_sensor.sensor_door_contact
+          from: 'off'
+          to: 'on'
+          for:
+            hours: 0
+            minutes: 0
+            seconds: 20
+        conditions:
+        - condition: state
+          entity_id: binary_sensor.sensor_window_contact
+          state: 'on'
+        actions:
+        - action: fan.turn_off
+          metadata: {}
+          data: {}
+          target:
+            device_id: 942d30d597816da860a7e9cf95ffd16b
+        mode: single
+  automation.exp_entrance_door_light_on:
+    friendly_name: Entrance Door Light On
+    entity_id: automation.exp_entrance_door_light_on
+    tag: Psanei_Thesis_Experiment
+    enabled: false
+    last_triggered: '2026-07-09T15:39:07.537104+00:00'
+    trigger_summary:
+    - 'state change: binary_sensor.presencesensor_presence to=off'
+    - 'state change: binary_sensor.sensor_door_contact to=on'
+    condition_summary:
+    - 'template: {% set time = states(''input_datetime.experiment_clock'') %} {{ time
+      >= ''19:00:00'' or time < ''24:00:00'' }}'
+    action_summary:
+    - 'choose (2 branches):'
+    - '  branch 1 if: triggered by id=door_open & device condition: binary_sensor.is_present'
+    - '    then: light.turn_on → light.doorlight | {''brightness_pct'': 50}'
+    - '  branch 2 if: triggered by id=left'
+    - '    then: device action: light.turn_off → light.doorlight'
+    entities_involved:
+    - binary_sensor.presencesensor_presence
+    - binary_sensor.sensor_door_contact
+    - light.doorlight
+    - light.turn_on
+    raw_config:
+      config:
+        id: '1779788826158'
+        alias: Entrance Door Light On
+        description: ''
+        triggers:
+        - id: left
+          to: 'off'
+          from: null
+          trigger: state
+          entity_id:
+          - binary_sensor.presencesensor_presence
+        - id: door_open
+          to: 'on'
+          from: null
+          trigger: state
+          entity_id:
+          - binary_sensor.sensor_door_contact
+        conditions:
+        - condition: template
+          value_template: '{% set time = states(''input_datetime.experiment_clock'')
+            %}
+
+            {{ time >= ''19:00:00'' or time < ''24:00:00'' }}'
+        actions:
+        - choose:
+          - sequence:
+            - data:
+                brightness_pct: 50
+              action: light.turn_on
+              target:
+                device_id: a967640697ef302d228d6bafea0ea4cb
+              metadata: {}
+            conditions:
+            - id:
+              - door_open
+              condition: trigger
+            - type: is_present
+              domain: binary_sensor
+              condition: device
+              device_id: 16697f5435894dd6513d959c016851db
+              entity_id: 910b20ccbc1010b0d8c37864a31a85b9
+          - sequence:
+            - type: turn_off
+              domain: light
+              device_id: a967640697ef302d228d6bafea0ea4cb
+              entity_id: d0e49c55ffed311289f36de226afb58c
+            conditions:
+            - id:
+              - left
+              condition: trigger
+        mode: single
+  automation.exp_evening_wind_down:
+    friendly_name: Evening Wind down
+    entity_id: automation.exp_evening_wind_down
+    tag: Psanei_Thesis_Experiment
+    enabled: false
+    last_triggered: '2026-07-09T14:46:30.322857+00:00'
+    trigger_summary:
+    - 'time_pattern: hours=* minutes=* seconds=30'
+    condition_summary:
+    - 'template: {% set time = states(''input_datetime.experiment_clock'') %} {{ time
+      >= ''21:00:00'' and time < ''23:00:00'' }}'
+    action_summary:
+    - 'device action: cover.set_position → cover.rollo | {''position'': 20}'
+    - 'device action: cover.close → cover.0x54ef441000c939e0'
+    - 'device action: light.turn_on → light.floorlamp'
+    entities_involved:
+    - cover.0x54ef441000c939e0
+    - cover.rollo
+    - light.floorlamp
+    raw_config:
+      config:
+        id: '1779799031182'
+        alias: Evening Wind down
+        description: ''
+        triggers:
+        - trigger: time_pattern
+          seconds: '30'
+        conditions:
+        - condition: template
+          value_template: '{% set time = states(''input_datetime.experiment_clock'')
+            %}
+
+            {{ time >= ''21:00:00'' and time < ''23:00:00'' }}'
+        actions:
+        - device_id: 0726b5708c7d06e31ba6dc2e9d3ec793
+          domain: cover
+          entity_id: 080670e455644d094b3797feda41d06b
+          type: set_position
+          position: 20
+        - device_id: 138f0ddc7ee52ee489dfbf72e067d6c3
+          domain: cover
+          entity_id: 07e7057b4cb96a254f89bc7f6d596e39
+          type: close
+        - type: turn_on
+          device_id: 711a4373501cdd36450e37c8ccceb390
+          entity_id: 4cac3ce5c643291570e631b7395ee658
+          domain: light
+        mode: single
+  automation.exp_morning_routine:
+    friendly_name: Morning Routine
+    entity_id: automation.exp_morning_routine
+    tag: Psanei_Thesis_Experiment
+    enabled: false
+    last_triggered: '2026-07-09T15:24:15.175127+00:00'
+    trigger_summary:
+    - 'state change: input_datetime.experiment_clock to=[''07:00:00'']'
+    condition_summary: []
+    action_summary:
+    - 'device action: cover.open → cover.0x54ef441000c939e0'
+    - 'device action: cover.set_position → cover.rollo | {''position'': 81}'
+    - script.1779809457657
+    - 'delay: {''hours'': 0, ''minutes'': 0, ''seconds'': 8, ''milliseconds'': 0}'
+    - 'androidtv.adb_command → binary_sensor.tv_status | {''command'': ''input keyevent
+      KEYCODE_WAKEUP''}'
+    - 'androidtv.adb_command → binary_sensor.tv_status | {''command'': ''am start
+      -a android.intent.action.VIEW -d "https://ice5.somafm.com/'
+    - 'delay: {''hours'': 0, ''minutes'': 0, ''seconds'': 3, ''milliseconds'': 0}'
+    - 'androidtv.adb_command → binary_sensor.tv_status | {''command'': ''input keyevent
+      23''}'
+    - '[DISABLED - does not run] media_player.media_play → media_player.fire_tv_192_168_178_22'
+    entities_involved:
+    - binary_sensor.tv_status
+    - cover.0x54ef441000c939e0
+    - cover.rollo
+    - input_datetime.experiment_clock
+    - script.1779809457657
+    raw_config:
+      config:
+        id: '1779795882351'
+        alias: Morning Routine
+        description: ''
+        triggers:
+        - trigger: state
+          entity_id:
+          - input_datetime.experiment_clock
+          to:
+          - 07:00:00
+        conditions: []
+        actions:
+        - device_id: 138f0ddc7ee52ee489dfbf72e067d6c3
+          domain: cover
+          entity_id: 07e7057b4cb96a254f89bc7f6d596e39
+          type: open
+        - device_id: 0726b5708c7d06e31ba6dc2e9d3ec793
+          domain: cover
+          entity_id: 080670e455644d094b3797feda41d06b
+          type: set_position
+          position: 81
+        - action: script.1779809457657
+          metadata: {}
+          data: {}
+        - delay:
+            hours: 0
+            minutes: 0
+            seconds: 8
+            milliseconds: 0
+        - action: androidtv.adb_command
+          metadata: {}
+          data:
+            command: input keyevent KEYCODE_WAKEUP
+          target:
+            device_id: ddf29db6cfb7d47d8da7138b945b2916
+          enabled: true
+        - action: androidtv.adb_command
+          metadata: {}
+          data:
+            command: am start -a android.intent.action.VIEW -d "https://ice5.somafm.com/poptron-128-mp3"
+          target:
+            device_id: ddf29db6cfb7d47d8da7138b945b2916
+        - delay:
+            hours: 0
+            minutes: 0
+            seconds: 3
+            milliseconds: 0
+        - action: androidtv.adb_command
+          metadata: {}
+          data:
+            command: input keyevent 23
+          target:
+            device_id: ddf29db6cfb7d47d8da7138b945b2916
+        - action: media_player.media_play
+          metadata: {}
+          target:
+            entity_id: media_player.fire_tv_192_168_178_22
+          data: {}
+          enabled: false
+        mode: single
+  automation.exp_movie_mode_tv_on_fan_off:
+    friendly_name: Movie mode - TV on Fan off
+    entity_id: automation.exp_movie_mode_tv_on_fan_off
+    tag: Psanei_Thesis_Experiment
+    enabled: false
+    last_triggered: '2026-07-09T15:32:46.676286+00:00'
+    trigger_summary:
+    - 'state change: binary_sensor.tv_status to=on'
+    condition_summary:
+    - 'state: binary_sensor.presencesensor_presence == on'
+    action_summary:
+    - 'device action: fan.turn_off → fan.smartfan'
+    entities_involved:
+    - binary_sensor.presencesensor_presence
+    - binary_sensor.tv_status
+    - fan.smartfan
+    raw_config:
+      config:
+        id: '1779798475798'
+        alias: Movie mode - TV on Fan off
+        description: ''
+        triggers:
+        - to: 'on'
+          from: null
+          trigger: state
+          entity_id:
+          - binary_sensor.tv_status
+        conditions:
+        - state: 'on'
+          condition: state
+          entity_id: binary_sensor.presencesensor_presence
+        actions:
+        - type: turn_off
+          domain: fan
+          device_id: 942d30d597816da860a7e9cf95ffd16b
+          entity_id: a31562f13ea194878abecd8f81aa2946
+        mode: single
+  automation.exp_temp_low_heater_on:
+    friendly_name: Temp Low Heater On
+    entity_id: automation.exp_temp_low_heater_on
+    tag: Psanei_Thesis_Experiment
+    enabled: false
+    last_triggered: '2026-07-09T15:41:30.327837+00:00'
+    trigger_summary:
+    - 'time_pattern: hours=* minutes=* seconds=30'
+    condition_summary:
+    - 'state: binary_sensor.presencesensor_presence == on'
+    - 'temperature.is_value: sensor.temp_humid_temperature above 19°C'
+    action_summary:
+    - 'climate.set_temperature → climate.heater | {''temperature'': 30}'
+    entities_involved:
+    - binary_sensor.presencesensor_presence
+    - climate.heater
+    - climate.set_temperature
+    - sensor.temp_humid_temperature
+    raw_config:
+      config:
+        id: '1782228704360'
+        alias: Temp Low Heater On
+        description: ''
+        triggers:
+        - trigger: time_pattern
+          seconds: '30'
+        conditions:
+        - condition: state
+          entity_id: binary_sensor.presencesensor_presence
+          state: 'on'
+        - condition: temperature.is_value
+          target:
+            entity_id: sensor.temp_humid_temperature
+          options:
+            behavior: any
+            for: 00:00:00
+            threshold:
+              type: above
+              value:
+                active_choice: number
+                number: 19
+                unit_of_measurement: °C
+        actions:
+        - action: climate.set_temperature
+          metadata: {}
+          data:
+            temperature: 30
+          target:
+            device_id: 37faec733fe9e652fa1d5f8e7e94c158
+        mode: single
+  automation.exp_tv_on_bedlight_ambient:
+    friendly_name: TV On Bedlight Ambient
+    entity_id: automation.exp_tv_on_bedlight_ambient
+    tag: Psanei_Thesis_Experiment
+    enabled: false
+    last_triggered: '2026-07-09T15:32:46.677283+00:00'
+    trigger_summary:
+    - 'state change: binary_sensor.tv_status to=on'
+    condition_summary:
+    - 'template: {% set time = states(''input_datetime.experiment_clock'') %} {{ time
+      >= ''19:00:00'' or time < ''01:00:00'' }}'
+    action_summary:
+    - 'choose (1 branches):'
+    - '  branch 1 if: triggered by id=TV_turned_on'
+    - '    then: light.turn_on → light.bedlight_r | {''brightness_pct'': 100, ''transition'':
+      10}'
+    - '    then: [DISABLED - does not run] light.turn_on → light.bedlight_l | {''transition'':
+      10, ''brightness_pct'': 100}'
+    entities_involved:
+    - binary_sensor.tv_status
+    - light.bedlight_r
+    - light.turn_on
+    raw_config:
+      config:
+        id: '1779791098971'
+        alias: TV On Bedlight Ambient
+        description: ''
+        triggers:
+        - trigger: state
+          entity_id:
+          - binary_sensor.tv_status
+          from: null
+          to: 'on'
+          id: TV_turned_on
+        conditions:
+        - condition: template
+          value_template: '{% set time = states(''input_datetime.experiment_clock'')
+            %}
+
+            {{ time >= ''19:00:00'' or time < ''01:00:00'' }}'
+        actions:
+        - choose:
+          - conditions:
+            - condition: trigger
+              id:
+              - TV_turned_on
+            sequence:
+            - action: light.turn_on
+              metadata: {}
+              data:
+                brightness_pct: 100
+                transition: 10
+              target:
+                device_id:
+                - 9ccaf4a3fb0bf4eb0f68f9920894878f
+            - action: light.turn_on
+              metadata: {}
+              target:
+                entity_id: light.bedlight_l
+              data:
+                transition: 10
+                brightness_pct: 100
+              enabled: false
+        mode: single
+  automation.exp_window_closed_fan_on:
+    friendly_name: Window Closed Fan On
+    entity_id: automation.exp_window_closed_fan_on
+    tag: Psanei_Thesis_Experiment
+    enabled: false
+    last_triggered: '2026-07-09T15:38:03.852724+00:00'
+    trigger_summary:
+    - 'state change: binary_sensor.sensor_window_contact from=on to=off'
+    condition_summary:
+    - 'temperature.is_value: sensor.temp_humid_temperature above 20°C'
+    action_summary:
+    - 'if: device condition: switch.is_on'
+    - '  then: device action: fan.turn_on → fan.smartfan'
+    entities_involved:
+    - binary_sensor.sensor_window_contact
+    - fan.smartfan
+    - sensor.temp_humid_temperature
+    - switch.socket_fan
+    raw_config:
+      config:
+        id: '1779789681008'
+        alias: Window Closed Fan On
+        description: ''
+        triggers:
+        - to: 'off'
+          from: 'on'
+          trigger: state
+          entity_id:
+          - binary_sensor.sensor_window_contact
+        conditions:
+        - condition: temperature.is_value
+          target:
+            entity_id: sensor.temp_humid_temperature
+          options:
+            for: 00:00:00
+            threshold:
+              type: above
+              value:
+                active_choice: number
+                number: 20
+                unit_of_measurement: °C
+        actions:
+        - if:
+          - type: is_on
+            domain: switch
+            condition: device
+            device_id: 142900ab185df10c92dcef57c6da6dd1
+            entity_id: 7cd247568985a7f6ce2b2d20e4d6eb89
+          then:
+          - type: turn_on
+            domain: fan
+            device_id: 942d30d597816da860a7e9cf95ffd16b
+            entity_id: a31562f13ea194878abecd8f81aa2946
+        mode: single
+  automation.exp_window_open_shutter_open:
+    friendly_name: Window Open Shutter Open
+    entity_id: automation.exp_window_open_shutter_open
+    tag: Psanei_Thesis_Experiment
+    enabled: true
+    last_triggered: '2026-07-09T15:35:01.413225+00:00'
+    trigger_summary:
+    - 'state change: binary_sensor.sensor_window_contact from=off to=on'
+    condition_summary:
+    - 'state: binary_sensor.presencesensor_presence == on'
+    action_summary:
+    - 'cover.set_cover_position → cover.rollo | {''position'': 100}'
+    entities_involved:
+    - binary_sensor.presencesensor_presence
+    - binary_sensor.sensor_window_contact
+    - cover.rollo
+    - cover.set_cover_position
+    raw_config:
+      config:
+        id: '1782153113858'
+        alias: Window Open Shutter Open
+        description: ''
+        triggers:
+        - to: 'on'
+          from: 'off'
+          trigger: state
+          entity_id:
+          - binary_sensor.sensor_window_contact
+        conditions:
+        - state: 'on'
+          condition: state
+          entity_id: binary_sensor.presencesensor_presence
+        actions:
+        - data:
+            position: 100
+          action: cover.set_cover_position
+          target:
+            device_id: 0726b5708c7d06e31ba6dc2e9d3ec793
+          metadata: {}
+        mode: single

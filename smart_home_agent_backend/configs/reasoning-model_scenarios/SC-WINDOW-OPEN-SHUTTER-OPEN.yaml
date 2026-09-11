@@ -1,0 +1,35 @@
+# THE PARTICIPANT BRIEFING CARD — read to (or by) the participant at the start of a session.
+#
+# THE AGENT NEVER SEES THIS FILE. As of 2026-07-14 the scenario is deliberately NOT rendered
+# into the agent's prompt: the agent is a GENERAL troubleshooter for the whole lab, working
+# any problem from its room knowledge (devices, both portal builds, rules, switches, the time
+# model) — never primed with which predefined case, if any, is running. The scenario id chosen
+# at the Start-a-case gate is a GRADING LABEL: it stamps the session so it can be scored
+# against configs/ground_truth/<id>.yaml afterwards, and does nothing else.
+#
+# This file is therefore for HUMANS: the canonical wording of what the participant is told.
+# Keep it in step with symptom.participant_sees in the matching ground-truth file. The ANSWER
+# — injected fault, root cause, evidence path, grading — lives in configs/ground_truth/SC-WINDOW-OPEN-SHUTTER-OPEN.yaml, which is never loaded.
+# scripts/check_prompt_leakage.py enforces the boundary.
+
+metadata:
+  scenario_id: SC-WINDOW-OPEN-SHUTTER-OPEN
+  name: "Roller shutter does not open when the window is opened"
+  source: lab_study_2026
+  version: 1.0
+
+context:
+  space: "Smart Hotel Studio"
+  # Verbatim participant briefing. It states the expectation (the shutter should open when the
+  # window is opened and someone is present) without naming a rule, a device or a cause.
+  scenario_description: >
+    The participant enters the room and opens the window. As they understand it, the roller shutter
+    should automatically open when the window is opened and someone is in the room. However, the
+    roller shutter stays closed.
+
+    Their task is to investigate and diagnose the cause of the malfunction, thinking out loud, and to
+    identify the error type — device, connection, or configuration — and describe specifically where
+    the observed error originates.
+
+    THEY ARE NOT EXPECTED TO FIX ANYTHING, AND YOU MUST NOT ASK THEM TO. The session ends at a named
+    cause and a technician handoff, never at a repair.

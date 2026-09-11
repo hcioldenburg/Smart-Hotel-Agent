@@ -1,0 +1,238 @@
+@import 'tailwindcss';
+
+/* ─── Design tokens (Sherlock.home — sibling of SmartHotel) ─── */
+:root {
+  /* Surfaces */
+  --c-page: #dcd6ca; /* outermost backdrop        */
+  --c-panel: #f4f1ea; /* app panel, case rail      */
+  --c-chat: #fbfaf6; /* conversation column       */
+  --c-card: #ffffff; /* agent bubble, cards       */
+  --c-accent-panel: #fbf6ec; /* summary card / chip hover */
+  --c-accent-brd: #f0e4cc; /* summary card border       */
+
+  /* Primary gold / accent */
+  --c-gold: #e0992f;
+  --c-gold-hover: #d08a26;
+  --c-gold-soft: #c2a24e; /* typing dots */
+
+  /* Tracker */
+  --c-dot-pending: #e9e2d4;
+  --c-line-active: #ead3a2;
+  --c-line-idle: #ede6d8;
+
+  /* Ink / text */
+  --c-ink: #25242a;
+  --c-ink2: #2a2a30; /* avatar bg, dark buttons */
+  --c-on-gold: #2a2008;
+  --c-body: #3a3833;
+  --c-body2: #2f2d28;
+  --c-muted: #6f6a60;
+  --c-muted2: #8a857a;
+  --c-faint: #a39e93;
+  --c-faint2: #b6b0a4;
+  --c-gold-label: #b08a3a;
+  --c-chip-text: #5c3f12;
+
+  /* Borders */
+  --c-border: #e5dfd2;
+  --c-border-card: #ece6d9;
+  --c-border-soft: #f0ebdf;
+  --c-border-input: #e2dbcc;
+  --c-border-chip: #e0d9cb;
+
+  /* Status */
+  --c-green: #5bae7a;
+
+  /* Error banner */
+  --c-err-bg: #fbedea;
+  --c-err-brd: #f0d2cb;
+  --c-err-text: #9a4a36;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ─── Responsive layout shell ───
+   Layout-critical properties live here (not inline) so the media queries
+   below can override them — inline styles would otherwise always win. */
+.sh-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* Respect the iOS status bar / notch when launched as a standalone web app
+     (black-translucent status bar draws over the page). */
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+
+.sh-panel {
+  width: 100%;
+  max-width: 1240px;
+  height: min(880px, calc(100vh - 48px));
+  border-radius: 22px;
+  overflow: hidden;
+  position: relative;
+  background: var(--c-panel);
+  color: var(--c-ink);
+  box-shadow: 0 30px 80px rgba(40, 38, 32, 0.28);
+  /* Shared horizontal gutter for the chat column; shrinks on mobile. */
+  --sh-pad-x: 30px;
+  --sh-pad-header: 26px;
+}
+
+.sh-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.sh-chatcol {
+  flex: 1;
+  min-width: 0;
+  background: var(--c-chat);
+}
+
+.sh-rail {
+  width: 330px;
+  flex: none;
+  border-left: 1px solid var(--c-border);
+  background: var(--c-panel);
+  padding: 24px 22px;
+  overflow-y: auto;
+  gap: 20px;
+}
+
+/* Tablet / small laptop: trim outer gutter and rail width. */
+@media (max-width: 1024px) {
+  .sh-shell {
+    padding: 16px;
+  }
+  .sh-panel {
+    height: min(880px, calc(100vh - 32px));
+  }
+  .sh-rail {
+    width: 280px;
+  }
+}
+
+/* Mobile: full-screen panel, stacked layout — case rail on top,
+   chat (with its pinned input) filling the rest below. */
+@media (max-width: 820px) {
+  .sh-shell {
+    padding: 0;
+  }
+  .sh-panel {
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    /* Keep the header below the translucent status bar in fullscreen. */
+    padding-top: env(safe-area-inset-top);
+    --sh-pad-x: 18px;
+    --sh-pad-header: 18px;
+  }
+  .sh-body {
+    flex-direction: column;
+  }
+  .sh-rail {
+    order: -1;
+    width: 100%;
+    max-height: 38vh;
+    border-left: none;
+    border-bottom: 1px solid var(--c-border);
+    padding: 16px 18px;
+    gap: 14px;
+  }
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--c-page);
+  font-family: 'Manrope', system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+/* Slim warm scrollbars */
+.sh-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.sh-scroll::-webkit-scrollbar-thumb {
+  background: #d2cbbc;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.sh-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sh-in {
+  font-family: 'Manrope', sans-serif;
+}
+.sh-in::placeholder {
+  color: var(--c-faint);
+}
+
+/* ─── Keyframes ─── */
+@keyframes shBlink {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.5);
+    opacity: 0.35;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shPop {
+  0% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shSlideIn {
+  0% {
+    transform: translateX(100%);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes shPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(224, 153, 47, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(224, 153, 47, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(224, 153, 47, 0);
+  }
+}

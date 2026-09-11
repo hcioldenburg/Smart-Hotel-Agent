@@ -1,0 +1,129 @@
+metadata:
+  framework_id: diagnostic_reasoning_framework
+  version: 2.0
+  domain: smart_home_troubleshooting
+  based_on:
+    - "Wozniak et al. 2024 - Connecting the Dots"
+    - "Room for Improvement - Dashboard Design for Mental Models"
+
+# EVERY KEY HERE IS READ BY THE CODE. Verified by scripts/check_config_wiring.py.
+#
+# v2.0 (2026-07-13) removed five keys that were loaded but never read: agent_foundation,
+# user_diagnosis_strategies, system_layers, interaction_style, diagnostic_workflow.
+# interaction_style was not merely inert — it said `tone: explanatory_and_guiding` and
+# "Explain reasoning", contradicting the no-narration rule the study depends on. A dead key
+# that contradicts a live one is a trap: it reads as policy and changes nothing.
+#
+# The strategy ids the mindmaps are `based_on` (devices_first / connections_first /
+# follow_the_thread) used to be described in user_diagnosis_strategies. They are now
+# defined by state.observed_strategy in utils/state.py — that is their only home.
+
+agent_policy:
+  primary_goal: >
+    Support users in identifying the root cause of smart-home issues through
+    structured diagnosis.
+
+  strict_rules:
+    - "Do not assume the user's first statement is the root cause."
+    - "User input is either a general question, a specific symptom, or a guess about the fault, or a combination of these, it can be also a request to find the location of the device, that in this case you should upload the photo of the requested device location."
+    - "Always start with diagnosis, not solution."
+    - "Guide the user through step-by-step reasoning."
+    # This rule used to read: "Explicitly explain what is being checked and why, in natural
+    # language..." — which flatly contradicted the response rules in
+    # config_loader.build_runtime_system_prompt ("Do NOT narrate your diagnostic reasoning...
+    # never pre-state what each outcome would mean"). Both were injected into every prompt.
+    # The no-narration rule is the one the study depends on: naming the categories you are
+    # deciding between, or spelling out what each outcome would imply, performs the inference
+    # FOR the participant and destroys the thing being measured. Rewritten to agree with it.
+    - "Say WHAT to check and give at most a brief, concrete purpose — never the reasoning chain behind it. Do not name the categories you are deciding between, and do not pre-state what each possible outcome would mean. A short plain takeaway of the LAST result is welcome ('good, so it's not the hub'); pre-announcing the logic of the NEXT check is not."
+    - "Only conclude after sufficient evidence is gathered."
+    # ADDED 2026-07-21 after a live session: the agent asked the participant to "turn on the wall
+    # light", a name that appears nowhere in either build. It had picked the phrase up from a stale
+    # floor_map_label in portal_entities.yaml (since corrected). The participant could not find the
+    # device, and the session stalled on a naming problem rather than a diagnostic one.
+    #
+    # The config bug is fixed, but nothing stopped the model INVENTING a name in the first place —
+    # and this room makes that easy, because some switches are named after the devices they drive,
+    # so a plausible-sounding contraction is always one step away. Hence a positive rule: the label
+    # list in the prompt is the only vocabulary. This is also why the device list is introduced as
+    # "exactly one of each — every label is unique": there is always a single correct name.
+    - "Name devices ONLY by their exact labels from the device list above. Never invent, shorten, expand, translate or paraphrase a label, and never blend two devices into one term: a switch and the device it controls have separate labels and are separate things. If the participant uses a name that is not on the list, or one that could mean more than one listed device, ask them which listed device they mean instead of adopting their wording — and use the exact label from then on."
+    # The full time model (three clocks, which one is authoritative, and what to CALL it in
+    # front of the participant) now lives in one place: environment.time_model, rendered by
+    # build_time_model_block(). This rule used to restate it — and restated it using the
+    # phrase "the smart home's system time", which is precisely the wording the agent must
+    # never say out loud, because naming the clock as artificial reveals the apparatus.
+    # NOTE: this rule used to end "...never describe the clock to the participant as simulated,
+    # artificial, or 'the system time'". Stating the prohibition required naming the thing
+    # prohibited — which told the MODEL the clock is staged. See the long note in
+    # environment.time_model.participant_facing_language: the positive naming rule rendered by
+    # build_time_model_block achieves the same behaviour and reveals nothing. Do not put the
+    # forbidden words back into any text the model reads.
+    - "For any time-dependent reasoning (scheduled or evening/night rules), the dashboard clock is THE current time. See the Time section above: never substitute real time or your own sense of 'now'."
+
+  reasoning_model: iterative_hypothesis_testing
+
+# Ported from docs/diagnostic_framework.md (Phase 1 of the redesign). These blocks
+# were originally kept out of the runtime config as a deliberate experiment
+# ("see if it reasons better without fixating the mind map"); the redesign now
+# injects the selected mindmap's steps into the prompt, so they live here.
+# mindmap `id`s match state.SelectedMindmap; `based_on` names the strategy in
+# state.observed_strategy.
+#
+# LIVE: build_current_mindmap_block() injects the matching mindmap's steps, verbatim, once
+# a strategy has been observed. Anything written here is spoken to the model — keep it
+# domain-general, and keep it consistent with the response rules.
+diagnostic_mindmaps:
+  - id: device_level_diagnosis
+    based_on: devices_first
+    steps:
+      - step: 1
+        action: "Confirm device identity and expected behavior."
+        reason: "Users often misidentify devices."
+      # Step 2 used to read "Check physical state such as power or local response."
+      # This block IS injected into the prompt, so that instructed the agent to do the one
+      # thing the power policy forbids: ask the participant about power. Power is not
+      # observable to them and is assumed good (lab conditions verified). Rewritten to the
+      # check they can actually perform.
+      - step: 2
+        action: "Have the participant operate the device directly and watch it in the room."
+        reason: "A device that responds to a direct command is neither dead nor unreachable."
+      - step: 3
+        action: "Check visibility in the system or app."
+        reason: "Distinguish physical failure from digital/system issue."
+      - step: 4
+        action: "Check similar devices."
+        reason: "Detect isolated versus systemic issue."
+
+  - id: connection_level_diagnosis
+    based_on: connections_first
+    steps:
+      - step: 1
+        action: "Identify connection type."
+        reason: "Different protocols have different dependencies."
+      - step: 2
+        action: "Check hub or router status."
+        reason: "Hub/router may be a shared failure point."
+      - step: 3
+        action: "Compare multiple devices."
+        reason: "Detect clustered failure."
+      - step: 4
+        action: "Check recent system changes."
+        reason: "Recent changes often cause problems."
+
+  - id: dependency_chain_diagnosis
+    based_on: follow_the_thread
+    steps:
+      - step: 1
+        action: "Identify expected trigger."
+        reason: "This is the start of the causal chain."
+      - step: 2
+        action: "Check whether the trigger occurred."
+        reason: "If the trigger did not occur, the action will not happen."
+      - step: 3
+        action: "Check intermediate logic."
+        reason: "Rules or automations may block execution."
+      - step: 4
+        action: "Check final device response."
+        reason: "Separates logic failure from device failure."
+

@@ -1,0 +1,363 @@
+metadata:
+  portal_config_id: smart_home_ui_rework_portal_tasks
+  version: 3.0
+  source_files:
+  # The LIVE portal. The old experiment-ui/ContextualUI tree is SUPERSEDED - every
+  # screen name in this file changed with the rework.
+  - Smart_Home_UI_Rework/src/pages/AllDevices.tsx
+  - Smart_Home_UI_Rework/src/pages/AllRules.tsx
+  - Smart_Home_UI_Rework/src/pages/YourRoom.tsx
+  - Smart_Home_UI_Rework/src/pages/FloorMapView.tsx
+  - Smart_Home_UI_Rework/src/pages/DependenciesView.tsx
+  - Smart_Home_UI_Rework/src/pages/ConnectionsView.tsx
+  - Smart_Home_UI_Rework/src/components/DeviceDetailPanel.tsx
+  - Smart_Home_UI_Rework/src/components/RuleDetailPanel.tsx
+  purpose: >
+    Reusable portal-navigation tasks the agent can call when it needs the user to
+    collect technical evidence from the dashboard.
+  condition_warning: >
+    Tasks marked `floor_map_condition_only` do NOT exist in the dashboard condition
+    (it has no floor map and no graphs). Check the session's presentation_mode and use
+    the listed fallback instead - never send a participant to a screen their build
+    does not have. portal_conditions.yaml is authoritative.
+
+task_selection_policy:
+  functional_responsiveness_first: >
+    When the open question is simply "does this device still respond / accept commands"
+    and the device can be operated from the room view (lights, fan, smart plugs;
+    roller shutter and curtain via position controls), prefer operating it from Your Room
+    and observing the room. This is faster and gives a stronger signal than reading a
+    State field, and it directly confirms whether the command reaches the device.
+    See control_device_in_room_and_observe.
+    EXCEPT THE TV: its command is unacknowledged and does not share a path with its
+    reported state, so a non-responding TV is inconclusive and proves nothing about the
+    TV, the hub, or the network. Never use it as a responsiveness or connectivity probe.
+  device_state_first: >
+    Use All Devices to read the exact State when a specific reported value matters
+    (cover position %, temperature, unavailable/offline indicator) or the device
+    cannot be operated directly (sensors, heater).
+  automation_reasoning: >
+    Use All Rules when the symptom may depend on triggers, conditions, schedules, or actions.
+
+    WHEN CHOOSING WHICH RULE: you know this room's automations by name, so NAME the relevant
+    rule outright and send the participant straight to it ("open 'Door Window Open Fan Off'") —
+    never make them guess which rule you mean ("the rule you think handles the fan"). But a
+    name is only what someone MEANT the rule to do, and you never see its contents. A rule whose
+    name sounds unrelated to the symptom is not thereby ruled out — it is often exactly the one
+    at fault, because a misconfigured rule is one that does something other than what it is
+    called. Have the participant open it and read its conditions; judge it on those, and never
+    claim what a rule does before they have read it to you.
+  physical_switch: >
+    Use All Rules > Physical switches when a wall switch / button is involved. That is
+    the ONLY place a switch appears in the dashboard condition.
+  system_scope: >
+    Use Your Room > Connections when multiple devices fail or the hub/network is
+    suspected (floor_map condition only).
+  dependency_reasoning: >
+    Use Your Room > Rules - the dependency graph - when one device's behaviour depends
+    on another sensor/device/rule (floor_map condition only).
+  physical_context: >
+    Use Your Room > Devices (the floor map) when the user needs to locate a device
+    (floor_map condition only).
+
+tasks:
+  control_device_in_room_and_observe:
+    goal: >
+      Quickly test whether a controllable device still responds by operating it from
+      the room view and watching the actual device in the room.
+    portal_path:
+    - Your Room
+    steps:
+    - Open Your Room.
+    - Find the affected device - its tile in the grouped cards (dashboard condition),
+      or its icon on the floor map, tapped to open its detail panel (floor_map condition).
+    - Use its control directly - toggle a light/fan/smart plug on or off, or move
+      the roller shutter/curtain with its position control.
+    - Watch the real device in the room and report whether it actually responded.
+    user_should_report:
+    - whether the device physically changed (light turned on/off, shutter moved, fan started)
+    - whether nothing happened at all
+    use_when:
+    - the question is simply whether the device still responds or accepts commands
+    - the device is controllable from the room view (lights, fan, smart plugs, roller shutter, curtain)
+    - you want a fast functional check before reading exact portal values
+    prefer_over: check_device_state_in_all_devices
+    not_for:
+    - read-only sensors (window/door/presence/temperature) - read their State instead
+    - the heater (read-only in the room view)
+    - cases where the exact numeric value (position %, temperature) is what you need
+    - the curtain by hand - moving it manually ruins its motor calibration
+    - THE TV - it is controllable, but a non-response is inconclusive (unacknowledged
+      command, and its state comes back on a different path). It proves nothing about the
+      TV, the hub, or the network, so never use it as a responsiveness or connectivity
+      check, and never as a comparison device. A TV that toggles the OPPOSITE way has
+      drifted state - that is not a fault.
+
+  check_device_state_in_all_devices:
+    goal: Collect the exact portal-reported state for a device.
+    portal_path:
+    - All Devices
+    steps:
+    - Open All Devices.
+    - Find the affected device by name.
+    - Read its State (e.g. "On"/"Off", "Present", "42% Open").
+    - Read Last changed (how long ago it last changed).
+    user_should_report:
+    - device name shown
+    - State value
+    - Last changed
+    use_when:
+    - an exact value matters (cover position %, temperature, unavailable/offline)
+    - the device is read-only and cannot be operated (sensors, heater)
+    - the agent needs to separate physical state from portal state
+    note: >
+      There is NO "Parameters" column and NO "Rules Attached" count column. The table
+      shows Device / Category / State / Last changed. For attached rules, use
+      check_device_rules_attached.
+    warning: >
+      A STALE "LAST CHANGED" IS NOT A FAULT UNTIL YOU HAVE TRIED TO MAKE IT CHANGE.
+
+      An old timestamp has two completely different explanations, and they look identical:
+        (a) the system cannot reach the device — a CONNECTION fault; or
+        (b) nothing has asked the device to do anything — no fault at all, just an idle device.
+
+      A light nobody has switched, and a light the system has lost, both read "3 days ago".
+
+      So do not read the timestamp and conclude. Make the device change — toggle it, open the
+      window by hand, move the cover — and read Last changed AGAIN:
+        it updates      -> the device is alive and being heard. The staleness was innocent.
+        it does not     -> the system is not hearing the device. NOW it is a connection fault.
+
+      This is the single most misread value in the dashboard. Reading it once tells you nothing.
+
+  check_device_rules_attached:
+    goal: Find which rules/automations reference a device.
+    portal_path:
+    - All Devices
+    steps:
+    - Open All Devices.
+    - Tap the device's row to open its detail card.
+    - Read the "Attached Rules" list at the bottom of the card.
+    - Report the rule names shown.
+    user_should_report:
+    - names of the attached rules
+    - whether the list is empty
+    use_when:
+    - an automation dependency is suspected
+    - the device works manually but not as expected automatically
+    note: >
+      Attached rules are in the device's DETAIL CARD, not in a table column. The card
+      lists the study automations; a device's physical switch is listed separately, in
+      All Rules > Physical switches.
+    warning: >
+      WHAT COMES BACK IS RULE NAMES, NOTHING MORE. A name is what someone INTENDED the rule to
+      do; its conditions are what it ACTUALLY does, and they can say opposite things. Never
+      dismiss a rule because its name sounds unrelated to the symptom — a rule whose name makes
+      it sound irrelevant is precisely the one to open. Follow this task with check_rule_details
+      and judge the rule on what the participant reads back, never on what it is called. (You
+      already know this room's rule names, so use this task to CONFIRM the linkage the
+      participant sees, not to discover names.)
+
+  check_rule_details:
+    goal: >
+      Read what a rule ACTUALLY does — its triggers, conditions and actions — as opposed to what
+      its name suggests it does.
+    portal_path:
+    - All Rules
+    steps:
+    - Open All Rules.
+    - Select the rule from the Automations section.
+    - Read its Triggers, Conditions, Actions, and Summary.
+    user_should_report:
+    - selected rule name
+    - Triggers
+    - Conditions
+    - Actions
+    use_when:
+    - a rule might block or cause the behaviour
+    - a presence/door/window/time condition may be involved
+    - >
+      ALWAYS, before ruling any automation out. You can see rule NAMES but never their contents,
+      so this task is the only way you ever learn what a rule really does. A rule is not exonerated
+      until the participant has read you its conditions.
+    # NOTE: this key was also called `warning`, which silently shadowed it — YAML keeps
+    # only the last duplicate key, so this text never reached the agent. Renamed 2026-07-17.
+    name_vs_behaviour_warning: >
+      THE RULE'S NAME IS NOT ITS BEHAVIOUR. The name records what someone intended; the conditions
+      record what it does, and the two can be opposites — a rule can run flawlessly, on time,
+      exactly as written, and still be wrong, because it was written wrongly. Nothing errors,
+      nothing goes unavailable, every device obeys.
+
+      So compare the conditions the participant reads back against what they told you they
+      EXPECTED. A gap between the two is a configuration fault, and it is the only way one is ever
+      found. Do not skip a rule because its name sounds like it belongs to a different problem.
+    warning: >
+      These boxes are STATIC text. The card does NOT show whether a trigger fired or
+      whether a condition is currently true. To judge that, read the underlying
+      device's State in All Devices. See portal_rules.yaml > rules_tab.observability.
+
+  check_rule_latest_activity:
+    goal: Check whether a rule recently fired.
+    portal_path:
+    - All Rules
+    steps:
+    - Open All Rules.
+    - Find the rule and read its "Last triggered" value (or "Never").
+    - Also note its Status (Enabled / Disabled).
+    user_should_report:
+    - last triggered time, or Never
+    - whether the rule is Enabled or Disabled
+    use_when:
+    - an automation should have run but did not
+    - an automation may be firing unexpectedly
+    note: Last triggered is the ONLY dynamic signal in the rules view.
+
+  check_switch_last_pressed:
+    goal: >
+      Confirm whether the system actually registered a press of a physical wall
+      switch / button.
+    portal_path:
+    - All Rules
+    - Physical switches
+    steps:
+    - Ask the participant to press the physical switch in the room.
+    - Open All Rules and scroll to the "Physical switches" section.
+    - Find that switch and read its "Last triggered".
+    user_should_report:
+    - the switch's Last triggered value (e.g. "just now", "2d ago", "Never")
+    - whether the controlled device actually reacted
+    use_when:
+    - the participant pressed a wall switch and the device did not respond
+    - a switch/button mapping is suspected
+    interpretation:
+    - Last triggered updates to "just now" but the device did not react -> the press
+      registered; the problem is downstream (the device, or the rule's action).
+    - Last triggered did NOT update -> the press never reached the system; suspect the
+      switch itself, its battery, or its pairing.
+    note: >
+      The switches are NOT in All Devices and NOT in the dashboard condition's Your
+      Room cards. All Rules is the only place they appear in that condition.
+      The wall switch is one physical switch with two gangs (Door Light, Window Light),
+      each listed as its own rule with its own Last triggered.
+
+  check_network_connections:
+    goal: >
+      See WHICH devices are wired to the hub. This is a static wiring diagram — it does NOT
+      show what is currently reachable.
+    floor_map_condition_only: true
+
+    # The lines in this view are drawn unconditionally, one per device, and nothing about a
+    # device's live state can change them (ConnectionsView.tsx has no availability input at
+    # all). An unreachable device still shows a solid line to the hub.
+    warning: >
+      NEVER use this view to decide whether a device is reachable. Every line is solid, always,
+      including for a device that is completely offline. Reading "the line is solid" as "the
+      connection is fine" is a false negative that this view will produce every single time.
+      It answers "what depends on the hub", never "what is reaching it".
+
+    fallback: >
+      For actual connectivity, in EITHER condition: judge it functionally. Have the participant
+      operate the device (control_device_in_room_and_observe) and use its physical control if it
+      has one; cross-check a second clearly observable device the same way; and read All Devices
+      for an unavailable/offline indicator and for whether Last changed is still updating.
+    portal_path:
+    - Your Room
+    - Connections
+    steps:
+    - Open Your Room and select Connections.
+    - Read which devices are drawn as connected to the Hub (i.e. which ones depend on it at all).
+    user_should_report:
+    - which devices are wired to the Hub
+    use_when:
+    - you need to know which devices depend on the hub, so you can tell a shared failure from an isolated one
+    not_for:
+    - deciding whether a specific device is currently reachable — the line is always solid
+    - confirming or ruling out a connection fault
+
+  check_network_dependencies:
+    goal: Check cross-device dependencies created by rules/automations.
+    floor_map_condition_only: true
+    fallback: >
+      Not available in the dashboard condition. Trace dependencies through All Rules
+      (open the rule and read its Triggers / Conditions / Actions) and through each
+      device's Attached Rules list (check_device_rules_attached).
+    portal_path:
+    - Your Room
+    - Rules
+    steps:
+    - Open Your Room and select Rules (the dependency graph).
+    - Find the affected device and follow its links to the rule nodes.
+    - Report which sensors/devices/rules are linked to it.
+    user_should_report:
+    - linked devices
+    - rule names shown
+    - whether a sensor or time condition appears related
+    use_when:
+    - follow-the-thread diagnosis
+    - an automation dependency is suspected
+    - a sensor condition may be blocking an action
+    note: >
+      This Your Room sub-tab is called "Rules" but it is the dependency GRAPH, not the
+      top-level All Rules table. Physical switches appear here as their own switch
+      icon, wired to the device each controls - not as rule nodes.
+
+  locate_device_on_floor_map:
+    goal: Help the user find a device physically in the room.
+    floor_map_condition_only: true
+    fallback: >
+      Not available in the dashboard condition. Use the device's location_hint from
+      the environment config, or send the floor-plan image via the visual-guidance tool.
+    portal_path:
+    - Your Room
+    - Devices
+    steps:
+    - Open Your Room (the floor map).
+    - Find the device's icon at its position in the room.
+    - Tap it to open its detail panel.
+    user_should_report:
+    - whether they found the device
+    - the state shown in its panel
+    use_when:
+    - the user is unsure where a device physically is
+    - a physical inspection is needed
+
+  check_sensor_state:
+    goal: Read a sensor's current state.
+    portal_path:
+    - All Devices
+    steps:
+    - Open All Devices.
+    - Find the sensor and read its State column.
+    user_should_report:
+    - sensor name
+    - state shown
+    supported_sensor_states:
+      Window Sensor: [Window Open, Window Closed]
+      Door Sensor: [Door Open, Door Closed]
+      Presence Sensor: [Present, Away]
+      Temperature Sensor: [temperature in °C]
+    use_when:
+    - the physical and portal sensor state need comparing
+    - an automation depends on door/window/presence/temperature
+    note: >
+      Sensors are read-only - they cannot be operated. In the floor_map condition the
+      same state is also visible by tapping the sensor on the floor map.
+
+  check_time_dependent_rule_context:
+    goal: Verify the time context for a scheduled rule.
+    portal_path:
+    - Top bar (clock pill)
+    - All Rules
+    steps:
+    - Read the clock pill in the top bar - this is the smart home's own time.
+    - Open All Rules and read the rule's time condition.
+    - Compare the two.
+    user_should_report:
+    - the time shown on the dashboard clock
+    - the rule's time condition
+    - whether the condition should currently be true
+    use_when:
+    - a rule is time-gated (e.g. evening wind-down, morning routine, TV ambient)
+    warning: >
+      Always use the dashboard's clock, never real/wall-clock time - the study's system
+      time can differ from the real world.

@@ -1,0 +1,463 @@
+metadata:
+  portal_config_id: contextual_ui_portal_rules
+  version: 3.0
+  source_files:
+  # The LIVE portal is the rework; the old ContextualUI/AutomationCard tree is superseded.
+  - Smart_Home_UI_Rework/src/pages/AllRules.tsx
+  - Smart_Home_UI_Rework/src/components/RuleDetailPanel.tsx
+  - Smart_Home_UI_Rework/src/pages/DependenciesView.tsx
+  - Smart_Home_UI_Rework/src/data/devices.ts        # RULE_LINKS, PS_RULES, SWITCH_LINKS
+  - Smart_Home_UI_Rework/src/hooks/useAutomation.ts # useAutomationsEXP / useAutomationsPS
+  ground_truth: >
+    The exp_* rules below are rebuilt from the LIVE Home Assistant study instance
+    (configs/HA_bootstrap_snapshots/ha_study_automations.yaml, tag
+    Psanei_Thesis_Experiment, generated 2026-06-25). The UI fetches the rule list
+    live from HA, so participants see these exact friendly names. The earlier
+    exp_fan_auto_on / exp_curtain_close_after_7pm set was a stale hardcode in
+    AutomationCard.tsx and does NOT exist in HA - it has been replaced.
+  purpose: Represent rules/automations as visible in the All Rules table and the floor map's dependency graph.
+rules_tab:
+  component: AllRules.tsx (Smart_Home_UI_Rework)
+  # Since 2026-07-13 the All Rules table is split into two separately-headed
+  # sections. Both are visible in BOTH presentation conditions.
+  groups:
+    automations:
+      header: Automations
+      subtitle: Rules the system runs on its own.
+      filter: automation.exp*
+      count: 9
+    physical_switches:
+      header: Physical switches
+      subtitle: Wall switches and buttons in the room. Each press fires its own rule.
+      filter: automation.ps*
+      count: 6
+      note: >
+        These are the room's wall switches/buttons, not devices. They were removed
+        from All Devices and from the dashboard condition's Your Room cards; All
+        Rules is now the only place a dashboard-condition participant can see them.
+        Each row shows that switch's own "Last triggered" (its last physical press).
+      read_only: >
+        Every physical switch is READ-ONLY in the dashboard - there is no on/off
+        control on a switch anywhere in the portal. A switch is pressed in the ROOM;
+        the dashboard only reports whether the system registered the press. Never tell
+        a participant to toggle a wall switch on the dashboard.
+  visible_fields:
+  - Rule name
+  - Status (Enabled/Disabled)
+  - Last triggered
+  rule_detail_fields:
+  - Triggers
+  - Conditions   # physical switches have none
+  - Actions
+  - Summary
+  logbook_source: /api/logbook for selected automation entity IDs
+  live_state_note: >
+    "enabled" and "Last triggered" are LIVE values the participant reads in the
+    UI; they are intentionally NOT baked into the rules below (they change per
+    session/scenario). As of the 2026-06-25 snapshot only
+    automation.exp_window_open_shutter_open was enabled; the other exp rules were
+    disabled - confirm the live enabled state per scenario rather than assuming.
+  observability:
+    # What a participant can ACTUALLY see (AllRules.tsx + RuleDetailPanel.tsx).
+    rule_list: >
+      Each rule shows its name and a "Latest Activities" cell reading
+      "Last triggered <N> ago" or "No recent activity". This is the only
+      dynamic signal in the whole tab.
+    rule_description: >
+      Selecting a rule opens three read-only boxes - Triggers, Conditions,
+      Actions - plus a plain-language Summary sentence. These are STATIC text
+      describing what the rule is meant to do.
+    not_available:
+    # UI affordances that generic Home Assistant has but THIS stripped-down UI does NOT.
+    # The agent must never tell a participant to look for these here.
+    - No live indicator of whether a trigger has fired.
+    - No live true/false state for any condition (conditions are static text only).
+    - No enable/disable or on/off toggle for a rule.
+    - No execution trace, run history log, or "why it did not run" explanation.
+    - No per-trigger or per-condition timestamp; only the rule's Latest Activities line.
+    how_to_infer_condition_state: >
+      To judge whether a trigger or condition is currently satisfied, read the
+      underlying device's State in All Devices (e.g. is the Door Sensor open, is
+      the temperature above 20 C) - it cannot be read from the rule view itself.
+rules:
+  automation.ps_toggle_bedlight_left:
+    entity_id: automation.ps_toggle_bedlight_left
+    group: physical_switch
+    display_name: Bedlight_Left_Toggle
+    description: When the Bedlight Left Toggle button is pressed, Bedlight L toggles on/off.
+    trigger: Bedlight Left Toggle (Button) is pressed
+    conditions: []
+    action: Toggle Bedlight L
+    related_environment_device_ids:
+    - bedlight_l
+    related_home_assistant_entities:
+    - light.bedlight_l
+    visible_in:
+    - All Rules > Physical switches section (its own header, separate from the automations)
+    - "All Rules > opening the switch: a WHEN/THEN card labelled 'Physical switch' (no conditions)"
+    - Your Room > Devices - the floor map icon, reporting ONLY when it was last pressed (floor_map condition only)
+    - Your Room > Rules - the floor map dependency graph, as a device-style node wired to the device it controls
+    - NOT in All Devices, and NOT in the dashboard condition's Your Room cards
+    diagnostic_relevance: Check this rule when the left bedlight reacts to the button incorrectly or not at all.
+  automation.ps_bedlight_right_toggle:
+    entity_id: automation.ps_bedlight_right_toggle
+    group: physical_switch
+    display_name: Bedlight_Right_Toggle
+    description: When the Bedlight Right Toggle button is pressed, Bedlight R toggles on/off.
+    trigger: Bedlight Right Toggle (Button) is pressed
+    conditions: []
+    action: Toggle Bedlight R
+    related_environment_device_ids:
+    - bedlight_r
+    related_home_assistant_entities:
+    - light.bedlight_r
+    visible_in:
+    - All Rules > Physical switches section (its own header, separate from the automations)
+    - "All Rules > opening the switch: a WHEN/THEN card labelled 'Physical switch' (no conditions)"
+    - Your Room > Devices - the floor map icon, reporting ONLY when it was last pressed (floor_map condition only)
+    - Your Room > Rules - the floor map dependency graph, as a device-style node wired to the device it controls
+    - NOT in All Devices, and NOT in the dashboard condition's Your Room cards
+    diagnostic_relevance: Check this rule when the right bedlight reacts to the button incorrectly or not at all.
+  automation.ps_doorlighttoggle:
+    entity_id: automation.ps_doorlighttoggle
+    group: physical_switch
+    display_name: DoorLightToggle
+    description: When the left side of the Wall Switch is pressed, Door Light toggles on/off.
+    trigger: Left side of Wall Switch (Button) is pressed
+    conditions: []
+    action: Toggle Door Light
+    related_environment_device_ids:
+    - doorlight
+    related_home_assistant_entities:
+    - light.doorlight
+    visible_in:
+    - All Rules > Physical switches section (its own header, separate from the automations)
+    - "All Rules > opening the switch: a WHEN/THEN card labelled 'Physical switch' (no conditions)"
+    - Your Room > Devices - the floor map icon, reporting ONLY when it was last pressed (floor_map condition only)
+    - Your Room > Rules - the floor map dependency graph, as a device-style node wired to the device it controls
+    - NOT in All Devices, and NOT in the dashboard condition's Your Room cards
+    diagnostic_relevance: Check this rule when the physical wall switch does not toggle the door light.
+  automation.ps_rolloswitchcontrol:
+    # Was automation.ps_roller_shutter_switch, which does not exist in HA (stale id
+    # from the old AutomationCard.tsx). Corrected 2026-07-13 to the real entity.
+    # It also claimed this button moves the CURTAIN; it moves the ROLLER SHUTTER.
+    entity_id: automation.ps_rolloswitchcontrol
+    group: physical_switch
+    display_name: Roller Shutter Switch
+    description: When the Roller Shutter button is held, the Roller Shutter moves up/down or stops.
+    trigger: Roller Shutter button (zigbee2mqtt/Button - Roller Shutter) is held up or down
+    conditions: []
+    action: Move the Roller Shutter up, down, or stop it
+    note: >
+      This one is hold-up/down/stop rather than on/off, and its automation only
+      responds to the real MQTT button.
+    related_environment_device_ids:
+    - rollo
+    related_home_assistant_entities:
+    - cover.rollo
+    visible_in:
+    - All Rules > Physical switches section (its own header, separate from the automations)
+    - "All Rules > opening the switch: a WHEN/THEN card labelled 'Physical switch' (no conditions)"
+    - Your Room > Devices - the floor map icon, reporting ONLY when it was last pressed (floor_map condition only)
+    - Your Room > Rules - the floor map dependency graph, as a device-style node wired to the device it controls
+    - NOT in All Devices, and NOT in the dashboard condition's Your Room cards
+    diagnostic_relevance: Check this rule when the roller shutter/curtain control button does not move the expected covering.
+  automation.ps_standlight_toggle:
+    entity_id: automation.ps_standlight_toggle
+    group: physical_switch
+    display_name: Floor Lamp Toggle
+    description: When Floor Lamp button is pressed, Floor Lamp toggles on/off.
+    trigger: Floor Lamp (Button) is pressed
+    conditions: []
+    action: Toggle Floor Lamp
+    related_environment_device_ids:
+    - floorlamp
+    related_home_assistant_entities:
+    - light.floorlamp
+    visible_in:
+    - All Rules > Physical switches section (its own header, separate from the automations)
+    - "All Rules > opening the switch: a WHEN/THEN card labelled 'Physical switch' (no conditions)"
+    - Your Room > Devices - the floor map icon, reporting ONLY when it was last pressed (floor_map condition only)
+    - Your Room > Rules - the floor map dependency graph, as a device-style node wired to the device it controls
+    - NOT in All Devices, and NOT in the dashboard condition's Your Room cards
+    diagnostic_relevance: Check this rule when the physical floor lamp button does not toggle the floor lamp.
+  automation.ps_windowlighttoggle:
+    entity_id: automation.ps_windowlighttoggle
+    group: physical_switch
+    display_name: WindowLightToggle
+    description: When the right side of the Wall Switch is pressed, Window Light toggles on/off.
+    trigger: Right side of Wall Switch (Button) is pressed
+    conditions: []
+    action: Toggle Window Light
+    related_environment_device_ids:
+    - windowlight
+    related_home_assistant_entities:
+    - light.windowlight
+    visible_in:
+    - All Rules > Physical switches section (its own header, separate from the automations)
+    - "All Rules > opening the switch: a WHEN/THEN card labelled 'Physical switch' (no conditions)"
+    - Your Room > Devices - the floor map icon, reporting ONLY when it was last pressed (floor_map condition only)
+    - Your Room > Rules - the floor map dependency graph, as a device-style node wired to the device it controls
+    - NOT in All Devices, and NOT in the dashboard condition's Your Room cards
+    diagnostic_relevance: Check this rule when the right side of the wall switch does not toggle the window light.
+  # --- Experiment automations: rebuilt from live HA (ha_study_automations.yaml, 2026-06-25) ---
+  automation.exp_door_window_open_fan_off:
+    entity_id: automation.exp_door_window_open_fan_off
+    group: experiment
+    display_name: Door Window Open Fan Off
+    friendly_name: Door Window Open Fan Off
+    description: When the Door Sensor becomes open (held for 20 seconds) while the Window Sensor is open, the Fan is turned off.
+    trigger: Door Sensor changes from closed to open (held for 20 seconds)
+    conditions:
+    - Window Sensor is open
+    action: Turn off the Fan
+    related_environment_device_ids:
+    - doorsensor
+    - windowsensor
+    - smartfan
+    related_home_assistant_entities:
+    - binary_sensor.sensor_door_contact
+    - binary_sensor.sensor_window_contact
+    - fan.smartfan
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Check this rule when the fan turns off unexpectedly; verify the door and window states in All Devices first.
+  automation.exp_entrance_door_light_on:
+    entity_id: automation.exp_entrance_door_light_on
+    group: experiment
+    display_name: Entrance Door Light On
+    friendly_name: Entrance Door Light On
+    # The underlying HA automation also turns the Door Light OFF when presence
+    # ends. That branch is lab housekeeping only (so the lamp is not left on after
+    # everyone leaves); a participant never triggers or observes it, and the portal
+    # does not show it. It is deliberately omitted here so the agent describes the
+    # rule exactly as the participant sees it in All Rules.
+    description: In the evening/night, opening the door while presence is detected turns the Door Light on at 50%.
+    trigger: Door Sensor becomes open
+    conditions:
+    - Time is between 7:00 PM and midnight
+    - Presence Sensor reports presence
+    action: Turn on the Door Light at 50%
+    related_environment_device_ids:
+    - doorsensor
+    - presencesensor
+    - doorlight
+    related_home_assistant_entities:
+    - binary_sensor.sensor_door_contact
+    - binary_sensor.presencesensor_presence
+    - light.doorlight
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Check this rule when the door light should turn on after entering but does not; inspect presence, door state, and the time before blaming the light.
+  automation.exp_evening_wind_down:
+    entity_id: automation.exp_evening_wind_down
+    group: experiment
+    display_name: Evening Wind down
+    friendly_name: Evening Wind down
+    description: In the late evening (checked every 30s), the Roller Shutter is set to 20%, the Curtain is closed, and the Floor Lamp is turned on.
+    trigger: Re-evaluated every 30 seconds
+    conditions:
+    - Time is between 9:00 PM and 11:00 PM
+    action: Set Roller Shutter to 20%, close the Curtain, and turn on the Floor Lamp
+    related_environment_device_ids:
+    - rollo
+    - curtain
+    - floorlamp
+    related_home_assistant_entities:
+    - cover.rollo
+    - light.floorlamp
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Check this rule when the roller shutter/curtain move or a light comes on in the evening unexpectedly; verify the time. (Which specific light it turns on is not certain from the config.)
+  automation.exp_morning_routine:
+    entity_id: automation.exp_morning_routine
+    group: experiment
+    display_name: Morning Routine
+    friendly_name: Morning Routine
+    # Corrected 2026-07-13: the Fan turn-on step no longer exists in HA at all (it was
+    # removed, not disabled), and the trigger now ticks every 15s, not 30s.
+    description: At 7:00 AM (checked once a minute), opens the Curtain, sets the Roller Shutter to 81%, and wakes the TV with a radio stream. It does NOT touch the Fan.
+    trigger: Re-evaluated once a minute
+    conditions:
+    - Time is between 7:00 AM and 7:05 AM
+    action: Open the Curtain, set Roller Shutter to 81%, wake the TV and start a radio stream
+    related_environment_device_ids:
+    - curtain
+    - rollo
+    - tv
+    - smartfan
+    related_home_assistant_entities:
+    - cover.rollo
+    - fan.smartfan
+    - remote.tv
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Check this rule when covers move or the TV wakes in the morning; note its Fan and remote actions are disabled.
+  automation.exp_movie_mode_tv_on_fan_off:
+    entity_id: automation.exp_movie_mode_tv_on_fan_off
+    group: experiment
+    display_name: Movie mode - TV on Fan off
+    friendly_name: Movie mode - TV on Fan off
+    # Corrected 2026-07-13: this was recorded as having NO actions, which was true in
+    # the 2026-06-25 snapshot but no longer is — HA now has `fan.turn_off` on the
+    # SmartFan. The agent had been told the rule does nothing.
+    description: When the TV turns on while presence is detected, the SmartFan turns off.
+    trigger: TV status changes to on
+    conditions:
+    - Presence Sensor reports presence
+    action: Turn off the SmartFan
+    related_environment_device_ids:
+    - tv
+    - presencesensor
+    - smartfan
+    related_home_assistant_entities:
+    - binary_sensor.tv_status
+    - binary_sensor.presencesensor_presence
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Despite its name, this rule has no actions and cannot turn the fan off; do not attribute fan behavior to it.
+  automation.exp_temp_low_heater_on:
+    entity_id: automation.exp_temp_low_heater_on
+    group: experiment
+    display_name: Temp Low Heater On
+    friendly_name: Temp Low Heater On
+    # CORRECTED 2026-07-13, after the rule was rewritten in HA. The temperature test moved from
+    # a TRIGGER (where a time_pattern trigger made it dead code — HA ORs triggers, so the rule
+    # fired every minute regardless of temperature) to a CONDITION, where it actually gates the
+    # rule. It reads ABOVE 19C, which is the injected configuration fault.
+    #
+    # DESCRIBE WHAT THE RULE DOES, NEVER WHAT IT WAS MEANT TO DO. This rule's text is the
+    # evidence a participant reads in order to find the fault (SC-TEMP-LOW-HEATER-ON). The UI
+    # used to describe it as "temperature drops below the threshold" — the intended behaviour —
+    # which made the fault invisible and the scenario unsolvable.
+    description: Re-evaluated once a minute. While presence is detected AND the temperature is ABOVE 19C, the Heater target temperature is set to 30C.
+    trigger: Re-evaluated once a minute
+    conditions:
+    - Presence Sensor reports presence
+    - Temperature is ABOVE 19C
+    action: Set the Heater temperature to 30C
+    related_environment_device_ids:
+    - temperaturesensor
+    - presencesensor
+    - heater
+    related_home_assistant_entities:
+    - sensor.temp_humid_temperature
+    - binary_sensor.presencesensor_presence
+    - climate.heater
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Check this rule when the heater setpoint changes unexpectedly; verify presence and the temperature reading.
+  automation.exp_tv_on_bedlight_ambient:
+    entity_id: automation.exp_tv_on_bedlight_ambient
+    group: experiment
+    display_name: TV On Bedlight Ambient
+    friendly_name: TV On Bedlight Ambient
+    description: In the evening/night, when the TV turns on, Bedlight R fades up to full brightness (100%) over 10 seconds.
+    trigger: TV status changes to on
+    conditions:
+    - Time is between 7:00 PM and 1:00 AM
+    action: TV on -> turn Bedlight R on to 100% (10s fade)
+    related_environment_device_ids:
+    - tv
+    - bedlight_r
+    related_home_assistant_entities:
+    - binary_sensor.tv_status
+    - light.bedlight_r
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Check this rule when Bedlight R turns on with the TV in the evening; verify TV status and the time. It only reacts to the TV turning on (not off), and no longer affects Bedlight L.
+  automation.exp_window_closed_fan_on:
+    entity_id: automation.exp_window_closed_fan_on
+    group: experiment
+    display_name: Window Closed Fan On
+    friendly_name: Window Closed Fan On
+    # UPDATED 2026-07-13: a temperature condition (above 20C) was added to the rule in HA. It was
+    # missing here and in the participant-facing UI, which check_rule_drift.py caught.
+    description: When the Window Sensor changes from open to closed AND the temperature is above 20C, the Fan is turned on - but only if the Fan's smart plug/switch is on.
+    trigger: Window Sensor changes from open to closed
+    conditions:
+    - Temperature is above 20C
+    - The Fan's smart plug (switch) is on
+    action: Turn on the Fan
+    related_environment_device_ids:
+    - windowsensor
+    - smartfan
+    - socket_fan
+    related_home_assistant_entities:
+    - binary_sensor.sensor_window_contact
+    - fan.smartfan
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Check this rule when the fan should turn on after the window closes but does not; verify the window state and that the fan's smart plug is on.
+  automation.exp_window_open_shutter_open:
+    entity_id: automation.exp_window_open_shutter_open
+    group: experiment
+    display_name: Window Open Shutter Open
+    friendly_name: Window Open Shutter Open
+    description: When the Window Sensor changes from closed to open while presence is detected, the Roller Shutter opens to 100%.
+    trigger: Window Sensor changes from closed to open
+    conditions:
+    - Presence Sensor reports presence
+    action: Open the Roller Shutter to 100%
+    related_environment_device_ids:
+    - windowsensor
+    - presencesensor
+    - rollo
+    related_home_assistant_entities:
+    - binary_sensor.sensor_window_contact
+    - binary_sensor.presencesensor_presence
+    - cover.rollo
+    visible_in:
+    - All Rules > Automations section (name, Enabled/Disabled, Last triggered)
+    - "All Rules > opening the rule: Triggers / Conditions / Actions / Summary"
+    - Your Room > Rules - the floor map dependency graph, as a gear/rule node (floor_map condition only)
+    diagnostic_relevance: Check this rule when the shutter opens unexpectedly or does not open when the window opens; verify window and presence state. (This was the only enabled exp rule in the 2026-06-25 snapshot.)
+# Rule-attachment counts DERIVED from the live automation set above (exp + ps).
+# The UI computes "Rules Attached" live, so treat these as expected values to
+# confirm against All Devices, not as authoritative UI readouts.
+device_rule_counts_derived:
+  doorlight: 2
+  windowlight: 1
+  floorlamp: 2
+  bedlight_l: 2
+  bedlight_r: 2
+  rollo: 3
+  curtain: 3
+  smartfan: 3
+  socket_fan: 1
+  tv: 3
+  heater: 1
+  temperaturesensor: 1
+  presencesensor: 4
+  doorsensor: 2
+  windowsensor: 3
+automation_mapper_support:
+  mapHAToSimpleAutomation:
+    purpose: Convert Home Assistant automation trigger/action to simple triggerDevice, triggerEvent, actionDevice, actionCommand.
+  mapSimpleToHAAutomation:
+    supported_trigger_events:
+    - turned on
+    - turned off
+    - temperature above X
+    - button pressed
+    supported_action_commands:
+    - turn on
+    - turn off
+    - set brightness to X
+    - set temperature to X
